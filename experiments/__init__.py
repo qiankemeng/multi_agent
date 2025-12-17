@@ -1,42 +1,66 @@
 """
-MVP实验模块
-提供最小可行实验所需的所有变量定义
+实验模块
+提供长视频理解实验所需的所有变量定义
 """
 
-from .mvp_variables import (
+from .video_variables import (
     # 枚举
-    ToolType,
-    TaskStatus,
-    ExperimentPhase,
+    VideoFormat,
+    SegmentationStrategy,
+    FrameSamplingMethod,
+    AnalysisTask,
+    ProcessingStatus,
 
-    # 数据类
-    ToolCreationRequest,
-    CreatedTool,
-    TaskData,
-    TaskExecution,
-    ExperimentRun,
-    ValidationResult,
+    # 基础视频变量
+    VideoMeta,
+    TimeSpan,
+    Segment,
+    Frame,
 
-    # 配置
-    ExperimentConfig,
-    MVPScenarios
+    # 视频理解结果
+    FrameCaption,
+    SegmentCaption,
+    VideoUnderstanding,
+
+    # MLLM API交互
+    MLLMRequest,
+    MLLMResponse,
+
+    # 原子操作
+    AtomicOperation,
+    AtomicOperations,
+
+    # 实验运行
+    VideoExperimentRun
 )
 
 __all__ = [
     # 枚举
-    'ToolType',
-    'TaskStatus',
-    'ExperimentPhase',
+    'VideoFormat',
+    'SegmentationStrategy',
+    'FrameSamplingMethod',
+    'AnalysisTask',
+    'ProcessingStatus',
 
-    # 数据类
-    'ToolCreationRequest',
-    'CreatedTool',
-    'TaskData',
-    'TaskExecution',
-    'ExperimentRun',
-    'ValidationResult',
+    # 基础视频变量
+    'VideoMeta',
+    'TimeSpan',
+    'Segment',
+    'Frame',
 
-    # 配置
-    'ExperimentConfig',
-    'MVPScenarios'
+    # 视频理解结果
+    'FrameCaption',
+    'SegmentCaption',
+    'VideoUnderstanding',
+
+    # MLLM API交互
+    'MLLMRequest',
+    'MLLMResponse',
+
+    # 原子操作
+    'AtomicOperation',
+    'AtomicOperations',
+
+    # 实验运行
+    'VideoExperimentRun'
 ]
