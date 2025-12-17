@@ -455,31 +455,47 @@ class AtomicOperation:
 # ==================== 预定义原子操作类型 ====================
 
 class AtomicOperations:
-    """预定义的原子操作类型"""
+    """
+    预定义的原子操作类型（MVP核心操作）
 
-    # 视频预处理操作
-    EXTRACT_METADATA = "extract_metadata"        # 提取视频元数据
-    SEGMENT_VIDEO = "segment_video"              # 视频分段
-    EXTRACT_FRAMES = "extract_frames"            # 提取帧
-    SAMPLE_FRAMES = "sample_frames"              # 帧采样
+    注意：
+    - 视频元数据提取不是原子操作，而是每个任务的前置步骤
+    - 这里只定义MVP实验必需的核心操作
+    """
 
-    # 视频分析操作
-    ANALYZE_FRAME = "analyze_frame"              # 分析单帧
-    ANALYZE_SEGMENT = "analyze_segment"          # 分析片段
-    DETECT_OBJECTS = "detect_objects"            # 目标检测
-    RECOGNIZE_ACTIONS = "recognize_actions"      # 动作识别
-    DETECT_SCENES = "detect_scenes"              # 场景检测
-
-    # 描述生成操作
-    GENERATE_FRAME_CAPTION = "generate_frame_caption"      # 生成帧描述
-    GENERATE_SEGMENT_CAPTION = "generate_segment_caption"  # 生成片段描述
-    MERGE_CAPTIONS = "merge_captions"                      # 合并描述
-    GENERATE_SUMMARY = "generate_summary"                  # 生成摘要
+    # 核心视频处理操作
+    SEGMENT_VIDEO = "segment_video"              # 视频分段（按时间或场景分割）
+    SAMPLE_FRAMES = "sample_frames"              # 帧采样（从片段中提取关键帧）
 
     # MLLM交互操作
-    CALL_MLLM_API = "call_mllm_api"              # 调用MLLM API
-    PARSE_MLLM_RESPONSE = "parse_mllm_response"  # 解析MLLM响应
-    BUILD_PROMPT = "build_prompt"                # 构建提示词
+    CALL_MLLM_API = "call_mllm_api"              # 调用MLLM API（发送图像+文本）
+
+    # 结果生成操作
+    GENERATE_CAPTION = "generate_caption"        # 生成描述（帧描述或片段描述）
+    MERGE_RESULTS = "merge_results"              # 合并结果（将多个片段结果整合）
+
+    @classmethod
+    def get_all_operations(cls) -> list[str]:
+        """获取所有操作类型"""
+        return [
+            cls.SEGMENT_VIDEO,
+            cls.SAMPLE_FRAMES,
+            cls.CALL_MLLM_API,
+            cls.GENERATE_CAPTION,
+            cls.MERGE_RESULTS
+        ]
+
+    @classmethod
+    def get_operation_description(cls, operation_type: str) -> str:
+        """获取操作描述"""
+        descriptions = {
+            cls.SEGMENT_VIDEO: "将长视频分割成多个片段，便于分段处理",
+            cls.SAMPLE_FRAMES: "从视频片段中采样关键帧，用于MLLM分析",
+            cls.CALL_MLLM_API: "调用多模态大语言模型API，进行图像理解",
+            cls.GENERATE_CAPTION: "根据MLLM响应生成结构化的描述文本",
+            cls.MERGE_RESULTS: "将所有片段的分析结果合并为完整的视频理解"
+        }
+        return descriptions.get(operation_type, "未知操作")
 
 
 # ==================== 实验运行记录 ====================

@@ -398,31 +398,34 @@ AtomicOperation(
 
 ---
 
-### 4.2 AtomicOperations - 预定义原子操作
+### 4.2 AtomicOperations - 预定义原子操作（MVP核心）
 
-**视频预处理操作**:
-- `EXTRACT_METADATA`: 提取视频元数据
-- `SEGMENT_VIDEO`: 视频分段
-- `EXTRACT_FRAMES`: 提取帧
-- `SAMPLE_FRAMES`: 帧采样
+**重要说明**:
+- 原子操作只包含MVP实验的核心操作
+- 视频元数据提取不是原子操作，而是每个任务的前置步骤
+- 精简设计，专注于最小可行实验
 
-**视频分析操作**:
-- `ANALYZE_FRAME`: 分析单帧
-- `ANALYZE_SEGMENT`: 分析片段
-- `DETECT_OBJECTS`: 目标检测
-- `RECOGNIZE_ACTIONS`: 动作识别
-- `DETECT_SCENES`: 场景检测
-
-**描述生成操作**:
-- `GENERATE_FRAME_CAPTION`: 生成帧描述
-- `GENERATE_SEGMENT_CAPTION`: 生成片段描述
-- `MERGE_CAPTIONS`: 合并描述
-- `GENERATE_SUMMARY`: 生成摘要
+**核心视频处理操作**:
+- `SEGMENT_VIDEO`: 视频分段（按时间或场景分割长视频）
+- `SAMPLE_FRAMES`: 帧采样（从片段中提取关键帧用于分析）
 
 **MLLM交互操作**:
-- `CALL_MLLM_API`: 调用MLLM API
-- `PARSE_MLLM_RESPONSE`: 解析MLLM响应
-- `BUILD_PROMPT`: 构建提示词
+- `CALL_MLLM_API`: 调用MLLM API（发送图像+文本进行理解）
+
+**结果生成操作**:
+- `GENERATE_CAPTION`: 生成描述（帧描述或片段描述）
+- `MERGE_RESULTS`: 合并结果（将多个片段结果整合为完整理解）
+
+**工具方法**:
+```python
+# 获取所有操作
+operations = AtomicOperations.get_all_operations()
+# ['segment_video', 'sample_frames', 'call_mllm_api', 'generate_caption', 'merge_results']
+
+# 获取操作描述
+desc = AtomicOperations.get_operation_description('segment_video')
+# '将长视频分割成多个片段，便于分段处理'
+```
 
 ---
 
