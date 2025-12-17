@@ -31,11 +31,14 @@ multi_agent/
 ├── tests/                       # 测试代码
 │   ├── test_tool_config.py     # 工具配置测试
 │   └── test_interaction_config.py  # 交互配置测试
+├── docs/                        # 文档目录
+│   ├── PROJECT_TASK.md         # 项目任务说明文档（重要）
+│   ├── VIDEO_VARIABLES.md      # 长视频理解变量表文档（重要）
+│   ├── INTERACTION_CONFIG_GUIDE.md  # 交互配置系统详细文档
+│   ├── TOOL_CONFIG_GUIDE.md    # 工具配置系统详细文档
+│   ├── VARIABLE_ORGANIZATION.md  # 变量组织总结
+│   └── REFACTOR_SUMMARY.md     # 重构完成总结
 ├── CLAUDE.md                    # Claude Code开发指南
-├── PROJECT_TASK.md              # 项目任务说明文档（重要）
-├── INTERACTION_CONFIG_GUIDE.md  # 交互配置系统详细文档
-├── VIDEO_VARIABLES.md           # 长视频理解变量表文档（重要）
-├── TOOL_CONFIG_GUIDE.md         # 工具配置系统详细文档
 └── readme.md                    # 项目说明（本文件）
 ```
 
@@ -47,7 +50,7 @@ multi_agent/
 - Agent实现：通过MLLM API（GPT-4V, Claude, Gemini等）
 - 系统架构：多Agent协作框架
 
-详见: [PROJECT_TASK.md](./PROJECT_TASK.md)
+详见: [docs/PROJECT_TASK.md](./docs/PROJECT_TASK.md)
 
 ---
 
@@ -66,7 +69,7 @@ multi_agent/
 - 上下文如何在多次交互中保持连贯
 - 系统状态如何被追踪和管理
 
-详见: [INTERACTION_CONFIG_GUIDE.md](./INTERACTION_CONFIG_GUIDE.md)
+详见: [docs/INTERACTION_CONFIG_GUIDE.md](./docs/INTERACTION_CONFIG_GUIDE.md)
 
 ---
 
@@ -79,7 +82,7 @@ multi_agent/
 - 全局注册表管理
 - 支持增删改查操作
 
-详见: [TOOL_CONFIG_GUIDE.md](./TOOL_CONFIG_GUIDE.md)
+详见: [docs/TOOL_CONFIG_GUIDE.md](./docs/TOOL_CONFIG_GUIDE.md)
 
 ---
 
@@ -109,7 +112,7 @@ multi_agent/
 **实验记录**:
 - **VideoExperimentRun**: 实验运行记录（追踪API调用次数、token使用、成本）
 
-详见: [VIDEO_VARIABLES.md](./VIDEO_VARIABLES.md)
+详见: [docs/VIDEO_VARIABLES.md](./docs/VIDEO_VARIABLES.md)
 
 ## 快速开始
 
@@ -230,14 +233,15 @@ mllm_request = MLLMRequest(
 ## 文档
 
 ### 核心文档（必读）
-- **[PROJECT_TASK.md](./PROJECT_TASK.md)** - 项目任务说明（明确长视频理解任务）
-- **[VIDEO_VARIABLES.md](./VIDEO_VARIABLES.md)** - 长视频理解变量表文档
-- **[INTERACTION_CONFIG_GUIDE.md](./INTERACTION_CONFIG_GUIDE.md)** - 交互配置系统详细文档
+- **[docs/PROJECT_TASK.md](./docs/PROJECT_TASK.md)** - 项目任务说明（明确长视频理解任务）
+- **[docs/VIDEO_VARIABLES.md](./docs/VIDEO_VARIABLES.md)** - 长视频理解变量表文档
+- **[docs/INTERACTION_CONFIG_GUIDE.md](./docs/INTERACTION_CONFIG_GUIDE.md)** - 交互配置系统详细文档
 
 ### 参考文档
 - [CLAUDE.md](./CLAUDE.md) - Claude Code开发指南
-- [TOOL_CONFIG_GUIDE.md](./TOOL_CONFIG_GUIDE.md) - 工具配置系统详细文档
-- [VARIABLE_ORGANIZATION.md](./VARIABLE_ORGANIZATION.md) - 变量组织总结
+- [docs/TOOL_CONFIG_GUIDE.md](./docs/TOOL_CONFIG_GUIDE.md) - 工具配置系统详细文档
+- [docs/VARIABLE_ORGANIZATION.md](./docs/VARIABLE_ORGANIZATION.md) - 变量组织总结
+- [docs/REFACTOR_SUMMARY.md](./docs/REFACTOR_SUMMARY.md) - 重构完成总结
 
 ## 技术栈
 
