@@ -22,15 +22,22 @@ multi_agent/
 │   ├── __init__.py             # 模块入口
 │   ├── tool_config.py          # 工具配置定义
 │   └── interaction_config.py   # 交互配置定义（最重要）
+├── agents/                      # Agent实现模块（新）
+│   ├── __init__.py             # 模块入口
+│   ├── mllm_client.py          # MLLM API调用封装
+│   ├── tool_creator_agent.py   # 工具创建Agent
+│   └── tool_user_agent.py      # 工具使用Agent
 ├── experiments/                 # 实验模块
 │   ├── __init__.py             # 模块入口
 │   └── video_variables.py      # 长视频理解变量定义
 ├── examples/                    # 示例代码
 │   ├── tool_config_example.py  # 工具配置使用示例
-│   └── interaction_example.py  # 交互配置使用示例
+│   ├── interaction_example.py  # 交互配置使用示例
+│   └── agents_example.py       # Agent使用示例（新）
 ├── tests/                       # 测试代码
 │   ├── test_tool_config.py     # 工具配置测试
-│   └── test_interaction_config.py  # 交互配置测试
+│   ├── test_interaction_config.py  # 交互配置测试
+│   └── test_agents.py          # Agent测试（新）
 ├── docs/                        # 文档目录
 │   ├── PROJECT_TASK.md         # 项目任务说明文档（重要）
 │   ├── VIDEO_VARIABLES.md      # 长视频理解变量表文档（重要）
@@ -114,6 +121,30 @@ multi_agent/
 
 详见: [docs/VIDEO_VARIABLES.md](./docs/VIDEO_VARIABLES.md)
 
+---
+
+✅ **Agent实现** - 完成两个核心Agent的实现
+
+**MLLM API封装**:
+- **MLLMClient**: OpenAI API调用封装，支持文本和图像输入
+- **MLLMClientConfig**: 客户端配置（API key、模型、温度等）
+- 自动token统计和成本计算
+- 错误处理和重试机制
+
+**ToolCreatorAgent (工具创建Agent)**:
+- 通过MLLM API动态生成Python工具代码
+- 输入：工具需求描述、参数要求、约束条件
+- 输出：完整的可执行Python代码
+- 自动代码提取和验证
+
+**ToolUserAgent (工具使用Agent)**:
+- 通过MLLM Vision API分析视频内容
+- 支持多种分析任务：帧描述、片段分析、摘要生成、问答
+- 自动提取关键信息（事件、对象、场景）
+- 上下文管理和多轮对话支持
+
+详见示例: `python examples/agents_example.py`
+
 ## 快速开始
 
 ### 1. 查看交互配置示例
@@ -142,9 +173,63 @@ python tests/test_interaction_config.py
 
 # 测试工具配置
 python tests/test_tool_config.py
+
+# 测试Agent实现
+python tests/test_agents.py
 ```
 
-### 4. 使用长视频理解变量
+### 4. 使用Agent（需要OPENAI_API_KEY）
+
+```bash
+# 查看Agent使用示例
+python examples/agents_example.py
+
+# 设置API key
+export OPENAI_API_KEY='your-api-key'
+```
+
+示例代码：
+
+```python
+from agents import (
+    ToolCreatorAgent,
+    ToolUserAgent,
+    ToolCreationRequest,
+    VideoAnalysisRequest
+)
+from experiments import AnalysisTask, Frame
+
+# 创建工具创建Agent
+creator = ToolCreatorAgent(agent_id="creator_001")
+
+# 请求创建工具
+request = ToolCreationRequest(
+    request_id="req_001",
+    tool_name="extract_keyframes",
+    tool_description="从视频中提取关键帧",
+    input_requirements="视频路径，采样间隔",
+    output_requirements="关键帧列表"
+)
+
+result = creator.create_tool(request)
+print(result.tool_code)
+
+# 创建工具使用Agent
+user = ToolUserAgent(agent_id="user_001")
+
+# 分析视频帧
+frames = [...]  # Frame对象列表
+analysis_request = VideoAnalysisRequest(
+    request_id="req_002",
+    task=AnalysisTask.CAPTION,
+    frames=frames
+)
+
+analysis_result = user.analyze(analysis_request)
+print(analysis_result.frame_captions)
+```
+
+### 5. 使用长视频理解变量
 
 ```python
 from experiments import (
@@ -208,20 +293,23 @@ mllm_request = MLLMRequest(
 
 ## 下一步计划
 
-### 当前阶段：基础设施完成 ✅
+### 当前阶段：Agent实现完成 ✅
 - [x] 定义项目核心任务（长视频理解）
 - [x] 定义交互配置变量
 - [x] 定义工具配置变量
 - [x] 定义长视频理解数据变量
 - [x] 定义原子操作
+- [x] 实现MLLM API调用封装
+- [x] 实现工具创建Agent（基于MLLM）
+- [x] 实现工具使用Agent（基于MLLM）
 
-### 下一阶段：实现MVP实验
+### 下一阶段：视频处理与端到端实验
 - [ ] 实现视频预处理模块（提取元数据、分段、帧采样）
-- [ ] 实现MLLM API调用封装
-- [ ] 实现工具创建Agent（基于MLLM）
-- [ ] 实现工具使用Agent（基于MLLM）
+- [ ] 集成OpenCV/ffmpeg进行视频处理
+- [ ] 实现完整的视频理解pipeline
 - [ ] 运行端到端实验
 - [ ] 验证和评估结果
+- [ ] 成本分析和优化
 
 ### 后续计划
 - [ ] 优化分段策略

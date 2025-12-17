@@ -333,12 +333,15 @@ class MLLMRequest:
     # 模型配置
     model_name: str                        # 模型名称 (e.g., "gpt-4-vision", "claude-3")
     api_endpoint: str                      # API端点
-    api_key: str = ""                      # API密钥（实际使用时从环境变量读取）
 
-    # 输入内容
+    # 输入内容（必需字段）
     prompt: str                            # 文本提示
+
+    # 可选字段（有默认值）
+    api_key: str = ""                      # API密钥（实际使用时从环境变量读取）
     images: List[str] = field(default_factory=list)  # 图像列表（base64或URL）
     video_frames: List[str] = field(default_factory=list)  # 视频帧列表
+    system_prompt: str = ""                # 系统提示（可选）
 
     # 请求参数
     temperature: float = 0.7               # 温度参数
@@ -387,10 +390,12 @@ class MLLMResponse:
     prompt_tokens: int = 0                 # 提示token数
     completion_tokens: int = 0             # 完成token数
     total_tokens: int = 0                  # 总token数
+    cost_usd: float = 0.0                  # API调用成本（美元）
 
     # 时间信息
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     response_time_ms: Optional[float] = None  # 响应时间
+    timestamp: float = 0.0                 # Unix时间戳
 
     # 元数据
     model_name: str = ""                   # 实际使用的模型
@@ -403,6 +408,7 @@ class MLLMResponse:
             "text": self.text[:100] + "..." if len(self.text) > 100 else self.text,
             "success": self.success,
             "total_tokens": self.total_tokens,
+            "cost_usd": self.cost_usd,
             "response_time_ms": self.response_time_ms
         }
 
