@@ -39,6 +39,9 @@ from experiments import (
 
 from .mllm_client import MLLMClient, MLLMClientConfig
 
+# 导入全局配置
+from config import settings
+
 
 @dataclass
 class VideoAnalysisRequest:
@@ -109,10 +112,11 @@ class ToolUserAgent:
 
         # MLLM客户端 - 使用视觉模型
         if mllm_client is None:
+            # 使用配置中的Tool User Agent设置
             config = MLLMClientConfig(
-                default_model="gpt-4-vision-preview",  # 视觉模型
-                default_temperature=0.7,
-                default_max_tokens=1000
+                default_model=settings.agent.tool_user_model,
+                default_temperature=settings.agent.tool_user_temperature,
+                default_max_tokens=settings.agent.tool_user_max_tokens
             )
             self.mllm_client = MLLMClient(config)
         else:

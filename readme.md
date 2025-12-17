@@ -20,9 +20,10 @@
 multi_agent/
 ├── config/                      # 配置模块（核心）
 │   ├── __init__.py             # 模块入口
+│   ├── settings.py             # 全局配置管理（新）
 │   ├── tool_config.py          # 工具配置定义
 │   └── interaction_config.py   # 交互配置定义（最重要）
-├── agents/                      # Agent实现模块（新）
+├── agents/                      # Agent实现模块
 │   ├── __init__.py             # 模块入口
 │   ├── mllm_client.py          # MLLM API调用封装
 │   ├── tool_creator_agent.py   # 工具创建Agent
@@ -30,21 +31,32 @@ multi_agent/
 ├── experiments/                 # 实验模块
 │   ├── __init__.py             # 模块入口
 │   └── video_variables.py      # 长视频理解变量定义
+├── visualization/               # 可视化模块
+│   ├── __init__.py             # 模块入口
+│   ├── visualizer.py           # 核心可视化引擎
+│   ├── generate_visualization.py  # 可视化生成脚本
+│   ├── template.html           # HTML模板
+│   ├── README.md               # 可视化文档
+│   └── USAGE.md                # 详细使用指南
 ├── examples/                    # 示例代码
 │   ├── tool_config_example.py  # 工具配置使用示例
 │   ├── interaction_example.py  # 交互配置使用示例
-│   └── agents_example.py       # Agent使用示例（新）
+│   └── agents_example.py       # Agent使用示例
 ├── tests/                       # 测试代码
 │   ├── test_tool_config.py     # 工具配置测试
 │   ├── test_interaction_config.py  # 交互配置测试
-│   └── test_agents.py          # Agent测试（新）
+│   └── test_agents.py          # Agent测试
 ├── docs/                        # 文档目录
 │   ├── PROJECT_TASK.md         # 项目任务说明文档（重要）
 │   ├── VIDEO_VARIABLES.md      # 长视频理解变量表文档（重要）
 │   ├── INTERACTION_CONFIG_GUIDE.md  # 交互配置系统详细文档
 │   ├── TOOL_CONFIG_GUIDE.md    # 工具配置系统详细文档
+│   ├── CONFIGURATION.md        # 配置指南（新）
 │   ├── VARIABLE_ORGANIZATION.md  # 变量组织总结
 │   └── REFACTOR_SUMMARY.md     # 重构完成总结
+├── .env.example                 # 配置模板（新）
+├── .env                         # 实际配置（不提交，新）
+├── .gitignore                   # Git忽略文件
 ├── CLAUDE.md                    # Claude Code开发指南
 └── readme.md                    # 项目说明（本文件）
 ```
@@ -145,7 +157,78 @@ multi_agent/
 
 详见示例: `python examples/agents_example.py`
 
+---
+
+✅ **项目可视化系统** - 动态可视化项目架构
+
+**核心功能**:
+- 自动分析项目结构（18个模块、50个类、49个函数、5834行代码）
+- 交互式Web界面展示类关系图谱
+- 6个可视化视图：项目概览、模块详情、类结构、关系图谱、视频工作流、文件树
+- D3.js力导向图展示类继承关系
+- 实时搜索和过滤功能
+
+**快速使用**:
+```bash
+# 生成可视化
+python visualization/generate_visualization.py
+
+# 启动本地服务器查看
+python -m http.server -d visualization/output 8000
+# 访问 http://localhost:8000
+```
+
+详见: [visualization/README.md](./visualization/README.md)
+
+---
+
+✅ **配置管理系统** - 统一的配置管理
+
+**核心功能**:
+- 基于`.env`文件的配置管理
+- 分层配置：OpenAI、Claude、Gemini API配置
+- Agent特定配置：工具创建Agent和工具使用Agent
+- 视频处理配置：分段策略、帧采样等
+- 成本控制和性能配置
+
+**配置文件**:
+- `.env.example` - 配置模板（包含所有可用选项）
+- `.env` - 实际配置（不会提交到git）
+- `config/settings.py` - 配置加载和管理
+
+**快速配置**:
+```bash
+# 1. 复制配置模板
+cp .env.example .env
+
+# 2. 编辑配置文件，设置API密钥
+# OPENAI_API_KEY=your-api-key-here
+
+# 3. 验证配置
+python config/settings.py
+```
+
+详见: [docs/CONFIGURATION.md](./docs/CONFIGURATION.md)
+
 ## 快速开始
+
+### 0. 可视化项目架构（推荐首先查看）
+
+```bash
+# 生成项目可视化
+python visualization/generate_visualization.py
+
+# 在浏览器中查看（推荐使用HTTP服务器）
+python -m http.server -d visualization/output 8000
+# 访问 http://localhost:8000
+```
+
+可视化界面包含：
+- 📊 项目统计信息
+- 🏗️ 类结构浏览
+- 🔗 交互式关系图谱
+- 🎬 视频理解工作流展示
+- 📁 项目文件树
 
 ### 1. 查看交互配置示例
 
@@ -324,12 +407,15 @@ mllm_request = MLLMRequest(
 - **[docs/PROJECT_TASK.md](./docs/PROJECT_TASK.md)** - 项目任务说明（明确长视频理解任务）
 - **[docs/VIDEO_VARIABLES.md](./docs/VIDEO_VARIABLES.md)** - 长视频理解变量表文档
 - **[docs/INTERACTION_CONFIG_GUIDE.md](./docs/INTERACTION_CONFIG_GUIDE.md)** - 交互配置系统详细文档
+- **[visualization/README.md](./visualization/README.md)** - 项目可视化系统文档
 
 ### 参考文档
 - [CLAUDE.md](./CLAUDE.md) - Claude Code开发指南
 - [docs/TOOL_CONFIG_GUIDE.md](./docs/TOOL_CONFIG_GUIDE.md) - 工具配置系统详细文档
 - [docs/VARIABLE_ORGANIZATION.md](./docs/VARIABLE_ORGANIZATION.md) - 变量组织总结
 - [docs/REFACTOR_SUMMARY.md](./docs/REFACTOR_SUMMARY.md) - 重构完成总结
+- [visualization/USAGE.md](./visualization/USAGE.md) - 可视化系统详细使用指南
+- [visualization/SUMMARY.md](./visualization/SUMMARY.md) - 可视化系统完成总结
 
 ## 技术栈
 

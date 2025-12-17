@@ -30,29 +30,62 @@ from experiments import (
     AnalysisTask
 )
 
+# 导入全局配置
+from config import settings
+
 
 @dataclass
 class MLLMClientConfig:
     """MLLM客户端配置"""
-    api_key: Optional[str] = None  # API密钥，如果不提供则从环境变量读取
-    base_url: str = "https://api.openai.com/v1"  # API基础URL
-    default_model: str = "gpt-4-vision-preview"  # 默认模型
-    default_temperature: float = 0.7  # 默认温度
-    default_max_tokens: int = 1000  # 默认最大token数
-    timeout: int = 60  # 超时时间（秒）
-    max_retries: int = 3  # 最大重试次数
-    retry_delay: float = 1.0  # 重试延迟（秒）
+    api_key: Optional[str] = None  # API密钥，如果不提供则从配置读取
+    base_url: Optional[str] = None  # API基础URL，如果不提供则从配置读取
+    default_model: Optional[str] = None  # 默认模型，如果不提供则从配置读取
+    default_temperature: Optional[float] = None  # 默认温度，如果不提供则从配置读取
+    default_max_tokens: Optional[int] = None  # 默认最大token数，如果不提供则从配置读取
+    timeout: Optional[int] = None  # 超时时间（秒），如果不提供则从配置读取
+    max_retries: Optional[int] = None  # 最大重试次数，如果不提供则从配置读取
+    retry_delay: Optional[float] = None  # 重试延迟（秒），如果不提供则从配置读取
 
-    # Token价格（美元/1K tokens）- GPT-4 Vision价格
-    price_per_1k_prompt_tokens: float = 0.01
-    price_per_1k_completion_tokens: float = 0.03
+    # Token价格（美元/1K tokens），如果不提供则从配置读取
+    price_per_1k_prompt_tokens: Optional[float] = None
+    price_per_1k_completion_tokens: Optional[float] = None
 
     def __post_init__(self):
-        """初始化后处理"""
+        """初始化后处理 - 从全局配置加载默认值"""
+        # API配置
         if self.api_key is None:
-            self.api_key = os.getenv("OPENAI_API_KEY")
-            if not self.api_key:
-                print("Warning: OPENAI_API_KEY not found in environment variables")
+            self.api_key = settings.openai.api_key
+            if not self.api_key and not settings.dev.mock_mode:
+                print("Warning: OPENAI_API_KEY not set in configuration")
+
+        if self.base_url is None:
+            self.base_url = settings.openai.base_url
+
+        if self.default_model is None:
+            self.default_model = settings.openai.default_model
+
+        # MLLM参数
+        if self.default_temperature is None:
+            self.default_temperature = settings.mllm.default_temperature
+
+        if self.default_max_tokens is None:
+            self.default_max_tokens = settings.mllm.default_max_tokens
+
+        if self.timeout is None:
+            self.timeout = settings.mllm.request_timeout
+
+        if self.max_retries is None:
+            self.max_retries = settings.mllm.max_retries
+
+        if self.retry_delay is None:
+            self.retry_delay = settings.mllm.retry_delay
+
+        # 价格配置
+        if self.price_per_1k_prompt_tokens is None:
+            self.price_per_1k_prompt_tokens = settings.openai.price_prompt_1k
+
+        if self.price_per_1k_completion_tokens is None:
+            self.price_per_1k_completion_tokens = settings.openai.price_completion_1k
 
 
 class MLLMClient:

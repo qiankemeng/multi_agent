@@ -36,6 +36,9 @@ from experiments import (
 
 from .mllm_client import MLLMClient, MLLMClientConfig
 
+# 导入全局配置
+from config import settings
+
 
 @dataclass
 class ToolCreationRequest:
@@ -92,10 +95,11 @@ class ToolCreatorAgent:
 
         # MLLM客户端
         if mllm_client is None:
+            # 使用配置中的Tool Creator Agent设置
             config = MLLMClientConfig(
-                default_model="gpt-4-turbo-preview",  # 使用文本模型，工具创建不需要视觉
-                default_temperature=0.3,  # 较低温度，更确定性的输出
-                default_max_tokens=2000  # 足够生成工具代码
+                default_model=settings.agent.tool_creator_model,
+                default_temperature=settings.agent.tool_creator_temperature,
+                default_max_tokens=settings.agent.tool_creator_max_tokens
             )
             self.mllm_client = MLLMClient(config)
         else:
@@ -168,8 +172,8 @@ class ToolCreatorAgent:
                 api_endpoint=self.mllm_client.config.base_url,
                 prompt=prompt,
                 system_prompt=self._get_system_prompt(),
-                temperature=0.3,
-                max_tokens=2000,
+                temperature=self.mllm_client.config.default_temperature,
+                max_tokens=self.mllm_client.config.default_max_tokens,
                 task=AnalysisTask.OTHER
             )
 
