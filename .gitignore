@@ -47,3 +47,11 @@ htmlcov/
 # Environment variables
 .env
 .env.local
+
+# Large video files
+data/videos/*.mp4
+data/videos/*.avi
+data/videos/*.mov
+*.mp4
+*.avi
+*.mov

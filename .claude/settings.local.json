@@ -5,7 +5,19 @@
       "Bash(python:*)",
       "Bash(tree:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git mv:*)",
+      "Bash(chmod:*)",
+      "Bash(lsof:*)",
+      "Bash(timeout 600 python:*)",
+      "Bash(timeout 120 python:*)",
+      "Bash(if [ -f /tmp/multi_agent_test.log ])",
+      "Bash(then tail -50 /tmp/multi_agent_test.log)",
+      "Bash(else echo \"No log file found\")",
+      "Bash(fi)",
+      "Bash(python3:*)",
+      "Bash(timeout 180 python:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

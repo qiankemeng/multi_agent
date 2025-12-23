@@ -222,7 +222,7 @@ class MLLMClient:
         格式化图像数据为OpenAI API格式
 
         Args:
-            image_data: 图像数据（URL或base64编码）
+            image_data: 图像数据（URL、文件路径或base64编码）
 
         Returns:
             图像内容字典，如果格式错误则返回None
@@ -230,25 +230,55 @@ class MLLMClient:
         if not image_data:
             return None
 
-        # 判断是URL还是base64
+        # 判断是URL
         if image_data.startswith(('http://', 'https://')):
-            # URL格式
             return {
                 "type": "image_url",
                 "image_url": {
                     "url": image_data
                 }
             }
+
+        # 判断是data URL格式
         elif image_data.startswith('data:image'):
-            # data URL格式 (data:image/jpeg;base64,...)
             return {
                 "type": "image_url",
                 "image_url": {
                     "url": image_data
                 }
             }
+
+        # 判断是文件路径
+        elif os.path.exists(image_data):
+            # 读取文件并转换为base64
+            try:
+                import base64
+                with open(image_data, 'rb') as f:
+                    image_bytes = f.read()
+                    base64_str = base64.b64encode(image_bytes).decode('utf-8')
+
+                # 根据文件扩展名确定MIME类型
+                ext = os.path.splitext(image_data)[1].lower()
+                mime_type = {
+                    '.jpg': 'image/jpeg',
+                    '.jpeg': 'image/jpeg',
+                    '.png': 'image/png',
+                    '.gif': 'image/gif',
+                    '.webp': 'image/webp'
+                }.get(ext, 'image/jpeg')
+
+                return {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{base64_str}"
+                    }
+                }
+            except Exception as e:
+                print(f"Warning: Failed to read image file {image_data}: {e}")
+                return None
+
+        # 否则假设是base64编码，添加data URL前缀
         else:
-            # 假设是base64编码，添加data URL前缀
             return {
                 "type": "image_url",
                 "image_url": {
@@ -269,6 +299,10 @@ class MLLMClient:
         """
         # 提取响应文本
         text = api_response.choices[0].message.content
+
+        # Handle None content
+        if text is None:
+            text = ""
 
         # 提取token统计
         usage = api_response.usage

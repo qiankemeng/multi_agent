@@ -25,6 +25,7 @@ from .video_variables import (
     # MLLM API交互
     MLLMRequest,
     MLLMResponse,
+    ModelResponse,
 
     # 原子操作
     AtomicOperation,
@@ -56,6 +57,7 @@ __all__ = [
     # MLLM API交互
     'MLLMRequest',
     'MLLMResponse',
+    'ModelResponse',
 
     # 原子操作
     'AtomicOperation',

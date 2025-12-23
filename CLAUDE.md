@@ -45,7 +45,7 @@ Defines tool properties and management:
 **Basic Video Variables**:
 - `VideoMeta`: video_id, duration_sec, fps, num_frames, width, height
 - `Segment`: video_id, time_span (start_sec, end_sec), segment_index
-- `Frame`: frame_id, timestamp_sec, image_path/image_base64
+- `Frame`: frame_id, timestamp_sec, image_path (总是文件路径)
 - `TimeSpan`: start_sec, end_sec
 
 **Video Understanding Results**:
@@ -56,10 +56,13 @@ Defines tool properties and management:
 **MLLM API Interaction**:
 - `MLLMRequest`: API request (model_name, prompt, images, task)
 - `MLLMResponse`: API response (text, tokens, cost)
+- `ModelResponse`: 统一的模型响应（支持MLLM和ASR）
 
-**Atomic Operations**:
-- `AtomicOperation`: Basic operation unit
-- `AtomicOperations`: Predefined operations (segment_video, extract_frames, generate_caption, etc.)
+**Atomic Operations** (MVP核心操作):
+- `SAMPLE`: 采样（从视频/片段提取帧）
+- `SEGMENT`: 分段（将视频分割成片段）
+- `CALL_MODEL`: 调用模型（MLLM视觉理解/ASR语音识别）
+- `BBOX`: 边界框（给帧画框/标注）
 
 **Experiment Tracking**:
 - `VideoExperimentRun`: Complete experiment record (tracks API calls, token usage, cost)
@@ -69,17 +72,44 @@ Defines tool properties and management:
 ### Long Video Understanding Workflow
 
 ```
-1. Extract VideoMeta
+1. Extract VideoMeta (前置步骤)
    ↓
-2. Segment video → Segment × N
+2. SEGMENT → Segment × N
    ↓
 3. For each segment:
-   - Extract key frames → Frame
-   - Call MLLM API → MLLMRequest
-   - Generate caption → SegmentCaption
+   - SAMPLE → Frame × N
+   - CALL_MODEL(mllm) → ModelResponse
+   - Generate SegmentCaption
    ↓
-4. Integrate → VideoUnderstanding
+4. Aggregate → VideoUnderstanding
 ```
+
+### Atomic Operations (4个核心操作)
+
+**设计原则**：
+- 单一表达：Frame总是包含image_path（不再有image_base64）
+- 确定性输出：每个操作返回类型固定
+- 最小化选项：只保留核心功能
+- 易于组合：操作之间无缝连接
+
+**操作定义**：
+1. **SAMPLE**: 从视频/片段提取帧
+   - 方法: uniform, keyframe, timestamps
+   - 输出: List[Frame]
+
+2. **SEGMENT**: 将视频分割成片段
+   - 策略: fixed_duration, scene_change, custom
+   - 输出: List[Segment]
+
+3. **CALL_MODEL**: 调用模型
+   - 类型: mllm, asr
+   - 输出: ModelResponse
+
+4. **BBOX**: 给帧画框标注
+   - 输入: Frame + boxes
+   - 输出: Frame (标注后的新Frame)
+
+详细规范见: `docs/ATOMIC_OPERATIONS.md`
 
 ### Key Principles
 
@@ -132,13 +162,14 @@ When implementing the actual agents:
 ## Important Documentation
 
 ### Core Docs (READ FIRST)
-- **`PROJECT_TASK.md`**: Project mission and long video understanding task
-- **`VIDEO_VARIABLES.md`**: Complete variable reference for video understanding
-- **`INTERACTION_CONFIG_GUIDE.md`**: Interaction system guide
+- **`docs/PROJECT_TASK.md`**: Project mission and long video understanding task
+- **`docs/ATOMIC_OPERATIONS.md`**: 4个核心原子操作的完整规范
+- **`docs/VIDEO_VARIABLES.md`**: Complete variable reference for video understanding
+- **`docs/INTERACTION_CONFIG_GUIDE.md`**: Interaction system guide
 
 ### Reference Docs
-- `TOOL_CONFIG_GUIDE.md`: Tool configuration guide
-- `VARIABLE_ORGANIZATION.md`: Variable organization summary
+- `docs/TOOL_CONFIG_GUIDE.md`: Tool configuration guide
+- `docs/CONFIGURATION.md`: Configuration management guide
 - `readme.md`: Project overview
 
 ## Key Variables Reference
@@ -151,7 +182,10 @@ from experiments import VideoMeta, Segment, TimeSpan, Frame
 from experiments import FrameCaption, SegmentCaption, VideoUnderstanding
 
 # MLLM API
-from experiments import MLLMRequest, MLLMResponse, AnalysisTask
+from experiments import MLLMRequest, MLLMResponse, ModelResponse
+
+# Atomic operations
+from experiments import AtomicOperations
 
 # Experiment tracking
 from experiments import VideoExperimentRun, ProcessingStatus

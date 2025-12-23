@@ -231,8 +231,7 @@ def test_video_analysis_request():
             video_id="vid_001",
             frame_index=0,
             timestamp_sec=0.0,
-            image_path="https://example.com/frame1.jpg",
-            image_base64=None
+            image_path="https://example.com/frame1.jpg"
         )
     ]
 

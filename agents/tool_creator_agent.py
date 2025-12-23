@@ -190,7 +190,7 @@ class ToolCreatorAgent:
                 result = ToolCreationResult(
                     success=False,
                     tool_name=request.tool_name,
-                    error_message=f"MLLM API调用失败: {mllm_response.error_message}",
+                    error_message=f"MLLM API call failed: {mllm_response.error_message}",
                     mllm_response=mllm_response
                 )
                 self.stats["failed_creations"] += 1
@@ -215,46 +215,110 @@ class ToolCreatorAgent:
             return ToolCreationResult(
                 success=False,
                 tool_name=request.tool_name,
-                error_message=f"工具创建异常: {str(e)}"
+                error_message=f"Tool creation exception: {str(e)}"
             )
 
     def _get_system_prompt(self) -> str:
         """获取系统提示"""
-        return """你是一个专业的Python工具开发专家，专门为视频理解任务创建工具。
+        return """You are an expert Python tool developer specialized in creating tools for long video understanding tasks.
 
-你的任务是根据用户需求，生成完整的、可执行的Python工具代码。
+Your role is to compose atomic operations into higher-level tools based on user requirements.
 
-要求：
-1. 代码必须是完整的、可执行的Python函数
-2. 包含详细的docstring说明
-3. 包含参数类型提示
-4. 包含输入验证
-5. 包含错误处理
-6. 代码风格清晰、易读
-7. 专注于视频处理相关功能
+## Available Atomic Operations
 
-输出格式：
+You have access to 4 core atomic operations:
+
+### 1. SAMPLE - Frame Sampling
+Extract frames from video or segment.
+
+**Methods**:
+- `uniform`: Uniformly sample N frames
+  - params: {"num_frames": int}
+- `keyframe`: Sample keyframes based on content change
+  - params: {"threshold": float (0-1), "max_frames": int}
+- `timestamps`: Sample at specified timestamps
+  - params: {"timestamps": List[float]}
+
+**Input**: VideoMeta or Segment + method + params
+**Output**: List[Frame] (each Frame contains image_path)
+
+### 2. SEGMENT - Video Segmentation
+Segment video into multiple clips.
+
+**Strategies**:
+- `fixed_duration`: Segment by fixed duration
+  - params: {"duration_sec": float}
+- `scene_change`: Segment by scene change detection
+  - params: {"threshold": float, "min_duration": float}
+- `custom`: Segment by custom breakpoints
+  - params: {"breakpoints": List[float]}
+
+**Input**: VideoMeta + strategy + params
+**Output**: List[Segment]
+
+### 3. CALL_MODEL - Model Invocation
+Unified interface for calling models.
+
+**Model Types**:
+- `mllm`: Multimodal LLM (GPT-4o, Claude, Gemini)
+  - inputs: {"prompt": str, "frames": List[Frame], "system_prompt": str (optional)}
+  - params: {"temperature": float, "max_tokens": int}
+- `asr`: Speech recognition (Whisper)
+  - inputs: {"audio_path": str, "language": str (optional)}
+  - params: {"with_timestamps": bool}
+
+**Input**: model_type + model_name + inputs + params
+**Output**: ModelResponse
+
+### 4. BBOX - Bounding Box Annotation
+Draw bounding boxes on frame.
+
+**Input**: Frame + boxes (List[{"bbox": [x,y,w,h], "label": str, "confidence": float, "color": str}])
+**Output**: Frame (new Frame with annotations)
+
+## Data Types
+
+**Frame**: {frame_id, video_id, timestamp_sec, image_path, width, height}
+**Segment**: {segment_id, video_id, time_span, segment_index, total_segments}
+**ModelResponse**: {response_id, model_type, model_name, success, output, total_tokens, cost_usd}
+
+## Your Task
+
+Compose these atomic operations into a complete, executable Python tool function.
+
+Requirements:
+1. Use ONLY the 4 atomic operations listed above
+2. Write complete, executable Python code
+3. Include detailed docstring with clear parameter types
+4. Include input validation
+5. Include error handling
+6. Follow clean code principles
+7. Focus on video understanding tasks
+
+Output Format:
 ```python
-# 工具代码
 def tool_name(param1: Type1, param2: Type2) -> ReturnType:
     \"\"\"
-    工具描述
+    Tool description
 
     Args:
-        param1: 参数1说明
-        param2: 参数2说明
+        param1: Parameter 1 description
+        param2: Parameter 2 description
 
     Returns:
-        返回值说明
+        Return value description
+
+    Atomic Operations Used:
+        - OPERATION_NAME: purpose
     \"\"\"
-    # 实现代码
+    # Implementation code using atomic operations
     pass
 ```
 
-然后简要说明：
-- 工具功能
-- 参数说明
-- 使用示例"""
+Then provide:
+- Tool functionality summary
+- Parameter explanations
+- Usage example"""
 
     def _build_tool_creation_prompt(self, request: ToolCreationRequest) -> str:
         """
@@ -266,33 +330,33 @@ def tool_name(param1: Type1, param2: Type2) -> ReturnType:
         Returns:
             完整的prompt字符串
         """
-        prompt = f"""请创建一个名为 `{request.tool_name}` 的Python工具。
+        prompt = f"""Please create a Python tool named `{request.tool_name}`.
 
-**工具描述：**
+**Tool Description:**
 {request.tool_description}
 
-**输入要求：**
+**Input Requirements:**
 {request.input_requirements}
 
-**输出要求：**
+**Output Requirements:**
 {request.output_requirements}
 """
 
         if request.example_usage:
             prompt += f"""
-**使用示例：**
+**Usage Example:**
 {request.example_usage}
 """
 
         if request.constraints:
             prompt += f"""
-**约束条件：**
+**Constraints:**
 {request.constraints}
 """
 
         prompt += """
 
-请生成完整的、可执行的Python代码，并提供使用说明。"""
+Please generate complete, executable Python code with usage instructions."""
 
         return prompt
 
@@ -321,7 +385,7 @@ def tool_name(param1: Type1, param2: Type2) -> ReturnType:
                 return ToolCreationResult(
                     success=False,
                     tool_name=request.tool_name,
-                    error_message="无法从响应中提取代码块",
+                    error_message="Cannot extract code block from response",
                     mllm_response=mllm_response
                 )
 
@@ -342,7 +406,7 @@ def tool_name(param1: Type1, param2: Type2) -> ReturnType:
             return ToolCreationResult(
                 success=False,
                 tool_name=request.tool_name,
-                error_message=f"解析工具代码失败: {str(e)}",
+                error_message=f"Failed to parse tool code: {str(e)}",
                 mllm_response=mllm_response
             )
 

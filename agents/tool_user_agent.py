@@ -193,7 +193,7 @@ class ToolUserAgent:
                         success=False,
                         request_id=request.request_id,
                         task=request.task,
-                        error_message="必须提供frames或segment"
+                        error_message="Must provide frames or segment"
                     )
 
             elif request.task == AnalysisTask.SUMMARY:
@@ -207,7 +207,7 @@ class ToolUserAgent:
                     success=False,
                     request_id=request.request_id,
                     task=request.task,
-                    error_message=f"不支持的任务类型: {request.task}"
+                    error_message=f"Unsupported task type: {request.task}"
                 )
 
             # 更新统计
@@ -243,7 +243,7 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message=f"分析异常: {str(e)}",
+                error_message=f"Analysis exception: {str(e)}",
                 processing_time=time.time() - start_time
             )
 
@@ -264,10 +264,10 @@ class ToolUserAgent:
 
         for frame in frames_to_analyze:
             # 构建prompt
-            prompt = request.prompt if request.prompt else "请详细描述这一帧画面中的内容。"
+            prompt = request.prompt if request.prompt else "Please describe in detail what you see in this frame."
 
-            # 准备图像数据
-            image_data = frame.image_base64 if frame.image_base64 else frame.image_path or ""
+            # 准备图像数据（Frame总是使用image_path）
+            image_data = frame.image_path
 
             if not image_data:
                 continue
@@ -313,7 +313,7 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message="没有可分析的帧"
+                error_message="No frames to analyze"
             )
 
     def _analyze_segment(self, request: VideoAnalysisRequest) -> VideoAnalysisResult:
@@ -331,13 +331,13 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message="片段分析需要提供segment和frames"
+                error_message="Segment analysis requires both segment and frames"
             )
 
-        # 准备图像数据（从frames提取）
+        # 准备图像数据（从frames提取，Frame总是使用image_path）
         images = []
         for frame in request.frames[:request.max_frames]:
-            image_data = frame.image_base64 if frame.image_base64 else frame.image_path or ""
+            image_data = frame.image_path
             if image_data:
                 images.append(image_data)
 
@@ -346,25 +346,25 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message="没有可用的图像数据"
+                error_message="No available image data"
             )
 
         # 构建prompt
-        base_prompt = f"""请分析这个视频片段（{request.segment.time_span.start_sec:.1f}秒 到 {request.segment.time_span.end_sec:.1f}秒）。
+        base_prompt = f"""Please analyze this video segment (from {request.segment.time_span.start_sec:.1f}s to {request.segment.time_span.end_sec:.1f}s).
 
-下面是从这个片段中采样的{len(images)}帧关键画面。
+Below are {len(images)} keyframes sampled from this segment.
 
-请提供：
-1. 整体描述：这个片段发生了什么
-2. 主要事件：按时间顺序列出主要事件
-3. 关键对象：出现的重要人物、物体等
+Please provide:
+1. Overall description: What happens in this segment
+2. Main events: List major events in chronological order
+3. Key objects: Important people, objects, etc. that appear
 """
 
         if request.context_info:
-            base_prompt = f"前文背景：{request.context_info}\n\n" + base_prompt
+            base_prompt = f"Context: {request.context_info}\n\n" + base_prompt
 
         if request.prompt:
-            base_prompt += f"\n\n特别关注：{request.prompt}"
+            base_prompt += f"\n\nSpecial focus: {request.prompt}"
 
         # 调用MLLM
         mllm_request = MLLMRequest(
@@ -407,7 +407,7 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message=f"MLLM调用失败: {mllm_response.error_message}",
+                error_message=f"MLLM call failed: {mllm_response.error_message}",
                 mllm_response=mllm_response
             )
 
@@ -422,18 +422,18 @@ class ToolUserAgent:
             分析结果
         """
         # 基于上下文信息生成摘要
-        prompt = f"""请根据以下视频分析信息，生成一个简洁的摘要：
+        prompt = f"""Please generate a concise summary based on the following video analysis:
 
 {request.context_info}
 
-要求：
-1. 概括主要内容（2-3句话）
-2. 突出重点事件
-3. 保持客观描述
+Requirements:
+1. Summarize main content (2-3 sentences)
+2. Highlight key events
+3. Keep it objective and descriptive
 """
 
         if request.prompt:
-            prompt += f"\n\n特别关注：{request.prompt}"
+            prompt += f"\n\nSpecial focus: {request.prompt}"
 
         # 调用MLLM（文本任务，不需要图像）
         mllm_request = MLLMRequest(
@@ -461,7 +461,7 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message=f"生成摘要失败: {mllm_response.error_message}",
+                error_message=f"Summary generation failed: {mllm_response.error_message}",
                 mllm_response=mllm_response
             )
 
@@ -480,25 +480,25 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message="QA任务需要提供问题（prompt）"
+                error_message="QA task requires a question (prompt)"
             )
 
-        # 准备图像（如果有）
+        # 准备图像（如果有，Frame总是使用image_path）
         images = []
         if request.frames:
             for frame in request.frames[:request.max_frames]:
-                image_data = frame.image_base64 if frame.image_base64 else frame.image_path or ""
+                image_data = frame.image_path
                 if image_data:
                     images.append(image_data)
 
         # 构建prompt
-        prompt = f"""根据视频内容回答以下问题：
+        prompt = f"""Answer the following question based on the video content:
 
-问题：{request.prompt}
+Question: {request.prompt}
 """
 
         if request.context_info:
-            prompt = f"视频内容：\n{request.context_info}\n\n" + prompt
+            prompt = f"Video content:\n{request.context_info}\n\n" + prompt
 
         # 调用MLLM
         mllm_request = MLLMRequest(
@@ -527,7 +527,7 @@ class ToolUserAgent:
                 success=False,
                 request_id=request.request_id,
                 task=request.task,
-                error_message=f"回答问题失败: {mllm_response.error_message}",
+                error_message=f"Question answering failed: {mllm_response.error_message}",
                 mllm_response=mllm_response
             )
 

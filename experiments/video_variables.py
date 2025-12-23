@@ -34,6 +34,7 @@ class VideoFormat(Enum):
     MOV = "mov"
     MKV = "mkv"
     WEBM = "webm"
+    OTHER = "other"
 
 
 class SegmentationStrategy(Enum):
@@ -58,6 +59,7 @@ class AnalysisTask(Enum):
     OBJECT_DETECTION = "object_detection"  # 目标检测
     ACTION_RECOGNITION = "action_recognition"  # 动作识别
     SCENE_UNDERSTANDING = "scene_understanding"  # 场景理解
+    OTHER = "other"                        # 其他任务
 
 
 class ProcessingStatus(Enum):
@@ -177,22 +179,28 @@ class Frame:
     """
     视频帧
     单个视频帧的信息
+
+    设计原则：
+    - Frame总是包含image_path（文件路径）
+    - 不再有image_base64字段（统一使用文件表达）
+    - 所有返回Frame的操作都保存为临时文件
     """
     frame_id: str                          # 帧唯一标识
     video_id: str                          # 所属视频ID
     segment_id: Optional[str] = None       # 所属分段ID（如果有）
 
-    # 帧信息
+    # 时间信息
     frame_index: int = 0                   # 帧索引
     timestamp_sec: float = 0.0             # 时间戳（秒）
 
-    # 帧数据（可选，避免存储大量图像数据）
-    image_path: Optional[str] = None       # 帧图像文件路径
-    image_base64: Optional[str] = None     # 帧图像base64编码（用于API）
+    # 图像信息（统一表达）
+    image_path: str = ""                   # 帧图像文件路径（总是存在）
+
+    # 图像属性
+    width: int = 0                         # 图像宽度
+    height: int = 0                        # 图像高度
 
     # 元数据
-    width: int = 0
-    height: int = 0
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
@@ -202,7 +210,9 @@ class Frame:
             "segment_id": self.segment_id,
             "frame_index": self.frame_index,
             "timestamp_sec": self.timestamp_sec,
-            "has_image": self.image_path is not None or self.image_base64 is not None
+            "image_path": self.image_path,
+            "width": self.width,
+            "height": self.height
         }
 
 
@@ -413,6 +423,76 @@ class MLLMResponse:
         }
 
 
+@dataclass
+class ModelResponse:
+    """
+    统一的模型响应（支持CALL_MODEL原子操作）
+
+    支持多种模型类型：
+    - mllm: 多模态大语言模型
+    - asr: 语音识别
+    - detection: 目标检测
+    - embedding: 特征提取
+    """
+    response_id: str                       # 响应唯一标识
+    request_id: str                        # 对应的请求ID
+
+    # 模型信息
+    model_type: str                        # 模型类型: mllm, asr, detection, embedding
+    model_name: str                        # 模型名称
+
+    # 响应状态
+    success: bool = True                   # 是否成功
+    error_message: str = ""                # 错误信息
+
+    # 核心输出（根据模型类型不同）
+    output: Any = None                     # 主要输出内容
+    # - mllm: str (生成的文本)
+    # - asr: Dict ({"text": str, "segments": List[Dict]})
+    # - detection: List[Dict] ([{"bbox": [...], "label": str, "confidence": float}])
+    # - embedding: List[float] (特征向量)
+
+    # 使用统计
+    prompt_tokens: int = 0                 # 提示token数（主要用于MLLM）
+    completion_tokens: int = 0             # 完成token数（主要用于MLLM）
+    total_tokens: int = 0                  # 总token数
+    cost_usd: float = 0.0                  # API调用成本（美元）
+
+    # 时间信息
+    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    response_time_ms: Optional[float] = None  # 响应时间
+
+    # 元数据
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "response_id": self.response_id,
+            "request_id": self.request_id,
+            "model_type": self.model_type,
+            "model_name": self.model_name,
+            "success": self.success,
+            "output": self._format_output_for_dict(),
+            "total_tokens": self.total_tokens,
+            "cost_usd": self.cost_usd,
+            "response_time_ms": self.response_time_ms
+        }
+
+    def _format_output_for_dict(self) -> Any:
+        """格式化输出用于字典展示"""
+        if self.model_type == "mllm" and isinstance(self.output, str):
+            # 截断长文本
+            return self.output[:100] + "..." if len(self.output) > 100 else self.output
+        elif self.model_type == "detection" and isinstance(self.output, list):
+            # 只显示检测数量
+            return f"{len(self.output)} detections"
+        elif self.model_type == "embedding" and isinstance(self.output, list):
+            # 只显示向量维度
+            return f"vector dim: {len(self.output)}"
+        else:
+            return self.output
+
+
 # ==================== 原子操作定义 ====================
 
 @dataclass
@@ -458,44 +538,140 @@ class AtomicOperations:
     """
     预定义的原子操作类型（MVP核心操作）
 
+    设计理念：
+    - 少而精：只定义4个核心原子操作
+    - 统一表达：每种数据类型只有唯一的标准表达方式
+    - 确定性输出：不依赖运行时参数选择
+    - 最小化选项：只保留核心的、不可相互替代的选项
+
+    MVP核心操作：
+    1. SAMPLE      - 采样（从视频/片段提取帧）
+    2. SEGMENT     - 分段（将视频分割成片段）
+    3. CALL_MODEL  - 调用模型（MLLM、ASR）
+    4. BBOX        - 边界框（给帧画框/标注）
+
     注意：
-    - 视频元数据提取不是原子操作，而是每个任务的前置步骤
-    - 这里只定义MVP实验必需的核心操作
+    - 视频元数据提取是**前置步骤**，不属于原子操作
+    - Frame总是包含image_path，不再有image_base64
+    - BBOX总是返回Frame对象，与SAMPLE保持一致
+    - 详细规范见: docs/ATOMIC_OPERATIONS_UNIFIED.md
     """
 
-    # 核心视频处理操作
-    SEGMENT_VIDEO = "segment_video"              # 视频分段（按时间或场景分割）
-    SAMPLE_FRAMES = "sample_frames"              # 帧采样（从片段中提取关键帧）
-
-    # MLLM交互操作
-    CALL_MLLM_API = "call_mllm_api"              # 调用MLLM API（发送图像+文本）
-
-    # 结果生成操作
-    GENERATE_CAPTION = "generate_caption"        # 生成描述（帧描述或片段描述）
-    MERGE_RESULTS = "merge_results"              # 合并结果（将多个片段结果整合）
+    # 核心原子操作
+    SAMPLE = "sample"                    # 采样：从视频/片段提取帧
+    SEGMENT = "segment"                  # 分段：将视频分割成片段
+    CALL_MODEL = "call_model"            # 调用模型：统一的模型调用接口
+    BBOX = "bbox"                        # 边界框：给帧画框标注
 
     @classmethod
     def get_all_operations(cls) -> list[str]:
         """获取所有操作类型"""
         return [
-            cls.SEGMENT_VIDEO,
-            cls.SAMPLE_FRAMES,
-            cls.CALL_MLLM_API,
-            cls.GENERATE_CAPTION,
-            cls.MERGE_RESULTS
+            cls.SAMPLE,
+            cls.SEGMENT,
+            cls.CALL_MODEL,
+            cls.BBOX
         ]
 
     @classmethod
     def get_operation_description(cls, operation_type: str) -> str:
         """获取操作描述"""
         descriptions = {
-            cls.SEGMENT_VIDEO: "将长视频分割成多个片段，便于分段处理",
-            cls.SAMPLE_FRAMES: "从视频片段中采样关键帧，用于MLLM分析",
-            cls.CALL_MLLM_API: "调用多模态大语言模型API，进行图像理解",
-            cls.GENERATE_CAPTION: "根据MLLM响应生成结构化的描述文本",
-            cls.MERGE_RESULTS: "将所有片段的分析结果合并为完整的视频理解"
+            cls.SAMPLE: "从视频或片段中采样提取帧图像（返回Frame列表，总是包含image_path）",
+            cls.SEGMENT: "将视频按策略分割成多个片段（固定时长/场景变化/自定义）",
+            cls.CALL_MODEL: "统一的模型调用接口（MLLM视觉理解/ASR语音识别）",
+            cls.BBOX: "在帧图像上绘制边界框和标注（返回新的Frame对象）"
         }
         return descriptions.get(operation_type, "未知操作")
+
+    @classmethod
+    def get_operation_signature(cls, operation_type: str) -> Dict[str, str]:
+        """获取操作的输入输出签名"""
+        signatures = {
+            cls.SAMPLE: {
+                "input": "source (VideoMeta|Segment) + method + params",
+                "output": "List[Frame] (总是包含image_path)",
+                "methods": "uniform, keyframe, timestamps (移除: interval)"
+            },
+            cls.SEGMENT: {
+                "input": "VideoMeta + strategy + params",
+                "output": "List[Segment]",
+                "strategies": "fixed_duration, scene_change, custom (移除: count)"
+            },
+            cls.CALL_MODEL: {
+                "input": "model_type + model_name + inputs + params",
+                "output": "ModelResponse",
+                "model_types": "mllm, asr (移除: detection, embedding)"
+            },
+            cls.BBOX: {
+                "input": "Frame + boxes",
+                "output": "Frame (总是返回Frame，移除: output_format)",
+                "note": "返回新的Frame对象，与SAMPLE输出一致"
+            }
+        }
+        return signatures.get(operation_type, {"input": "未知", "output": "未知"})
+
+    @classmethod
+    def get_supported_models(cls) -> Dict[str, List[str]]:
+        """获取支持的模型列表（精简版）"""
+        return {
+            "mllm": [
+                "gpt-4o", "gpt-4o-mini",
+                "claude-3-5-sonnet", "claude-3-haiku",
+                "gemini-1.5-pro", "gemini-1.5-flash"
+            ],
+            "asr": [
+                "whisper-large-v3",
+                "whisper-medium"
+            ]
+        }
+
+    @classmethod
+    def get_sample_methods(cls) -> List[str]:
+        """获取SAMPLE支持的方法"""
+        return ["uniform", "keyframe", "timestamps"]
+
+    @classmethod
+    def get_segment_strategies(cls) -> List[str]:
+        """获取SEGMENT支持的策略"""
+        return ["fixed_duration", "scene_change", "custom"]
+
+    @classmethod
+    def print_operations_summary(cls) -> None:
+        """打印操作摘要"""
+        print("=" * 60)
+        print("MVP原子操作总览（统一设计）")
+        print("=" * 60)
+        print("\n核心原则:")
+        print("  1. Frame总是包含image_path（不再有image_base64）")
+        print("  2. BBOX总是返回Frame对象（不再有output_format）")
+        print("  3. 精简策略选项（只保留核心功能）")
+        print("  4. 确定性输出（不依赖运行时参数）")
+        print("\n" + "-" * 60)
+
+        for op in cls.get_all_operations():
+            print(f"\n{op.upper()}")
+            print(f"  描述: {cls.get_operation_description(op)}")
+            sig = cls.get_operation_signature(op)
+            print(f"  输入: {sig['input']}")
+            print(f"  输出: {sig['output']}")
+            if 'methods' in sig:
+                print(f"  方法: {sig['methods']}")
+            if 'strategies' in sig:
+                print(f"  策略: {sig['strategies']}")
+            if 'model_types' in sig:
+                print(f"  模型类型: {sig['model_types']}")
+            if 'note' in sig:
+                print(f"  注意: {sig['note']}")
+
+        print("\n" + "=" * 60)
+        print("支持的模型:")
+        models = cls.get_supported_models()
+        for model_type, model_list in models.items():
+            print(f"  {model_type.upper()}:")
+            for model in model_list:
+                print(f"    - {model}")
+        print("=" * 60)
 
 
 # ==================== 实验运行记录 ====================
@@ -583,6 +759,7 @@ __all__ = [
     # MLLM API交互
     'MLLMRequest',
     'MLLMResponse',
+    'ModelResponse',  # 新增：统一的模型响应
 
     # 原子操作
     'AtomicOperation',

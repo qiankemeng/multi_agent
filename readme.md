@@ -405,6 +405,7 @@ mllm_request = MLLMRequest(
 
 ### 核心文档（必读）
 - **[docs/PROJECT_TASK.md](./docs/PROJECT_TASK.md)** - 项目任务说明（明确长视频理解任务）
+- **[docs/ATOMIC_OPERATIONS.md](./docs/ATOMIC_OPERATIONS.md)** - 4个核心原子操作的完整规范
 - **[docs/VIDEO_VARIABLES.md](./docs/VIDEO_VARIABLES.md)** - 长视频理解变量表文档
 - **[docs/INTERACTION_CONFIG_GUIDE.md](./docs/INTERACTION_CONFIG_GUIDE.md)** - 交互配置系统详细文档
 - **[visualization/README.md](./visualization/README.md)** - 项目可视化系统文档
@@ -412,10 +413,8 @@ mllm_request = MLLMRequest(
 ### 参考文档
 - [CLAUDE.md](./CLAUDE.md) - Claude Code开发指南
 - [docs/TOOL_CONFIG_GUIDE.md](./docs/TOOL_CONFIG_GUIDE.md) - 工具配置系统详细文档
-- [docs/VARIABLE_ORGANIZATION.md](./docs/VARIABLE_ORGANIZATION.md) - 变量组织总结
-- [docs/REFACTOR_SUMMARY.md](./docs/REFACTOR_SUMMARY.md) - 重构完成总结
+- [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) - 配置管理指南
 - [visualization/USAGE.md](./visualization/USAGE.md) - 可视化系统详细使用指南
-- [visualization/SUMMARY.md](./visualization/SUMMARY.md) - 可视化系统完成总结
 
 ## 技术栈
 
@@ -424,6 +423,189 @@ mllm_request = MLLMRequest(
 - **视频处理**: OpenCV / ffmpeg（待集成）
 - **配置管理**: dataclass + Enum
 - **测试**: pytest
+
+## Python文件说明
+
+### 核心模块
+
+#### config/ - 配置模块
+- **`config/__init__.py`** - 统一导出所有配置类
+- **`config/settings.py`** - 全局配置管理系统（基于.env文件）
+  - 管理OpenAI、Claude、Gemini API配置
+  - Agent特定配置（Tool Creator、Tool User）
+  - 视频处理、成本控制、性能配置
+- **`config/interaction_config.py`** - 多Agent交互配置（核心）
+  - `Message`: Agent间通信消息
+  - `ToolCallRequest/Response`: 工具调用协议
+  - `Context`: 上下文管理（系统记忆）
+  - `AgentState`: Agent状态追踪
+  - `InteractionConfig`: 系统级交互配置
+- **`config/tool_config.py`** - 工具配置系统
+  - `ToolConfig`: 工具定义
+  - `ToolParameter`: 参数定义和验证
+  - `ToolRegistry`: 全局工具注册表
+
+#### experiments/ - 实验模块
+- **`experiments/__init__.py`** - 导出所有视频理解变量
+- **`experiments/video_variables.py`** - 长视频理解核心变量定义
+  - **基础视频变量**: `VideoMeta`, `Segment`, `Frame`, `TimeSpan`
+  - **视频理解结果**: `FrameCaption`, `SegmentCaption`, `VideoUnderstanding`
+  - **MLLM API交互**: `MLLMRequest`, `MLLMResponse`, `ModelResponse`
+  - **原子操作**: `AtomicOperations` (4个核心操作：SAMPLE, SEGMENT, CALL_MODEL, BBOX)
+  - **实验追踪**: `VideoExperimentRun`
+
+#### agents/ - Agent实现模块
+- **`agents/__init__.py`** - 导出所有Agent组件
+- **`agents/mllm_client.py`** - MLLM API调用封装
+  - `MLLMClient`: 统一的MLLM API客户端
+  - `MLLMClientConfig`: 客户端配置
+  - 支持OpenAI API，自动token统计和成本计算
+- **`agents/tool_creator_agent.py`** - 工具创建Agent
+  - 通过MLLM API动态生成Python工具代码
+  - 根据需求描述组合原子操作
+  - 返回完整可执行代码
+- **`agents/tool_user_agent.py`** - 工具使用Agent
+  - 通过MLLM Vision API分析视频内容
+  - 支持任务：帧描述、片段分析、摘要生成、问答
+  - 自动提取关键信息（事件、对象、场景）
+
+#### processors/ - 视频处理模块 ✅ (Phase 1&2 完成)
+- **`processors/__init__.py`** - 导出视频处理组件
+- **`processors/video_processor.py`** - 视频处理核心实现 ✅ (Phase 1)
+  - `VideoProcessor`: 视频预处理类
+  - 元数据提取：使用opencv读取视频信息（时长、FPS、分辨率等）
+  - 视频分段：固定时长分段、自定义断点分段
+  - 帧采样：均匀采样、指定时间戳提取
+  - 帧保存：自动保存到临时目录
+- **`processors/atomic_operations_impl.py`** - 原子操作实现 ✅ (Phase 2)
+  - `AtomicOperationsImplementation`: 4个核心原子操作
+  - SAMPLE操作：帧采样（uniform, keyframe, timestamps）
+  - SEGMENT操作：视频分段（fixed_duration, scene_change, custom）
+  - CALL_MODEL操作：模型调用（MLLM, ASR）- 集成MLLMClient
+  - BBOX操作：边界框标注
+- **`processors/video_qa_pipeline.py`** - 端到端VideoQA Pipeline ✅ (Phase 3)
+  - `VideoQAPipeline`: 完整的视频问答流程
+  - 6步工作流：元数据提取 → 分段 → 采样 → 分析 → 整合 → 回答
+  - 集成Phase 1和Phase 2所有功能
+  - VideoExperimentRun实验追踪系统
+  - 灵活的配置系统和错误处理
+  - 支持Dry-run模式（无API key测试）
+
+#### visualization/ - 可视化模块
+- **`visualization/__init__.py`** - 导出可视化组件
+- **`visualization/visualizer.py`** - 项目可视化核心引擎
+  - 自动分析项目结构
+  - 生成类关系图谱
+  - 支持多种视图展示
+- **`visualization/generate_visualization.py`** - 可视化生成脚本
+  - 一键生成交互式Web可视化页面
+
+### 示例和测试
+
+#### examples/ - 使用示例
+- **`examples/interaction_example.py`** - 交互配置使用示例
+  - 演示Agent间消息传递
+  - 演示工具调用流程
+  - 演示上下文管理
+- **`examples/tool_config_example.py`** - 工具配置使用示例
+  - 演示工具定义和注册
+  - 演示参数验证
+- **`examples/agents_example.py`** - Agent使用示例
+  - 演示MLLM客户端使用
+  - 演示工具创建Agent
+  - 演示工具使用Agent
+  - 演示完整视频理解工作流
+- **`examples/atomic_operations_example.py`** - 原子操作示例
+  - 演示4个核心原子操作的使用
+- **`examples/video_processor_example.py`** - 视频处理示例 ✅ (Phase 1)
+  - 演示视频元数据提取
+  - 演示视频分段（固定时长、自定义断点）
+  - 演示帧采样（均匀采样、指定时间戳）
+  - 完整的端到端测试
+- **`examples/atomic_operations_impl_example.py`** - 原子操作示例 ✅ (Phase 2)
+  - 演示SAMPLE操作（uniform, timestamps）
+  - 演示SEGMENT操作（fixed_duration, custom）
+  - 演示CALL_MODEL操作（MLLM集成）
+  - 演示BBOX操作（边界框绘制）
+  - 演示组合工作流
+- **`examples/video_qa_pipeline_example.py`** - VideoQA Pipeline示例 ✅ (Phase 3)
+  - 演示完整端到端VideoQA流程
+  - 4个示例场景：基本QA、自定义配置、多问题、元数据预览
+  - 展示实验追踪和成本估算
+  - 支持无API key的Dry-run模式
+  - 完整的错误处理和进度输出
+- **`examples/dynamic_parameters_example.py`** - 动态参数传递示例 ✅
+  - 演示5种不同使用场景的参数传递
+  - 场景1：快速预览（大片段，少帧数）
+  - 场景2：详细分析（小片段，多帧数）
+  - 场景3：自适应采样（根据位置动态调整）
+  - 场景4：自定义时间戳（精确指定关键时刻）
+  - 场景5：自定义分段（按章节结构分段）
+  - 验证原子操作的参数灵活性
+  - 运行: `python examples/dynamic_parameters_example.py`
+
+#### tests/ - 测试代码
+- **`tests/test_interaction_config.py`** - 交互配置测试
+- **`tests/test_tool_config.py`** - 工具配置测试
+- **`tests/test_agents.py`** - Agent实现测试
+- **`tests/test_atomic_operations.py`** - 原子操作测试
+- **`tests/test_video_qa_pipeline.py`** - VideoQA Pipeline独立测试套件 ✅
+  - 测试VideoProcessor基础功能
+  - 测试AtomicOperations所有操作
+  - 测试Pipeline配置系统
+  - 测试完整工作流（Dry-run）
+  - 测试实验追踪系统
+  - 运行: `python tests/test_video_qa_pipeline.py`
+
+### 配置和文档
+
+- **`.env.example`** - 配置模板 ✅ **重要更新**
+  - 重新组织配置结构（全局配置 vs 默认值）
+  - 添加`DEFAULT_`前缀区分可覆盖的默认值
+  - 详细注释说明参数传递优先级
+  - 支持动态参数传递（调用时参数 > 默认值 > 硬编码）
+- **`.env`** - 实际配置文件（不提交到git）
+- **`CLAUDE.md`** - Claude Code开发指南
+- **`readme.md`** - 项目说明（本文件）
+
+#### 配置架构说明 ⭐
+
+系统采用**三层参数体系**：
+
+1. **全局配置**（Global Settings）- 系统级，不可运行时更改
+   - API Keys: `OPENAI_API_KEY`
+   - API行为: `MLLM_REQUEST_TIMEOUT`, `MLLM_MAX_RETRIES`
+   - 成本控制: `MAX_REQUEST_COST`, `MAX_DAILY_COST`
+   - 数据路径: `DATA_DIR`, `VIDEO_DIR`, `TEMP_DIR`
+
+2. **默认值**（Default Values）- 可在运行时被覆盖
+   - 原子操作默认值（带`DEFAULT_`前缀）
+   - `DEFAULT_SEGMENT_DURATION=30` - 分段时长默认值
+   - `DEFAULT_FRAMES_PER_SEGMENT=5` - 采样帧数默认值
+   - `DEFAULT_SAMPLING_METHOD=uniform` - 采样方法默认值
+
+3. **运行时参数**（Runtime Parameters）- 调用时动态指定
+   - Tool Creator创建工具时暴露参数
+   - Tool User调用时传递具体值
+   - 示例: `atomic_ops.sample(params={"num_frames": 10})`
+
+**参数优先级**: 调用时参数 > .env默认值 > 硬编码默认值
+
+**查看完整说明**: `docs/CONFIG_ARCHITECTURE_ANALYSIS.md`
+
+#### docs/ - 实现文档
+- **`docs/GAP_ANALYSIS.md`** - 差距分析文档（Phase 1-4规划）
+- **`docs/PHASE1_SUMMARY.md`** - Phase 1实现总结（视频处理基础）✅
+- **`docs/PHASE2_SUMMARY.md`** - Phase 2实现总结（原子操作）✅
+- **`docs/PHASE3_SUMMARY.md`** - Phase 3实现总结（端到端Pipeline）✅
+- **`docs/PHASE3_TEST_REPORT.md`** - Phase 3独立测试报告（5/5通过）✅
+- **`docs/CONFIG_ARCHITECTURE_ANALYSIS.md`** - 配置架构分析与重构方案 ✅
+- **`docs/CONFIG_FIX_SUMMARY.md`** - 配置架构修复总结 ✅
+- **`docs/PROJECT_TASK.md`** - 项目任务定义
+- **`docs/VIDEO_VARIABLES.md`** - 视频变量参考
+- **`docs/INTERACTION_CONFIG_GUIDE.md`** - 交互配置指南
+- **`docs/TOOL_CONFIG_GUIDE.md`** - 工具配置指南
+- **`docs/ATOMIC_OPERATIONS.md`** - 原子操作文档
 
 ## 贡献
 

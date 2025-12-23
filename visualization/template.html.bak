@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent 项目可视化</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+            font-size: 0.95em;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            background: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            min-height: 600px;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #file-tree {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .tree-item {
+            padding: 5px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .tree-item:hover {
+            background: #f5f5f5;
+        }
+
+        .tree-directory {
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .tree-file {
+            color: #333;
+        }
+
+        .tree-icon {
+            margin-right: 5px;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            position: relative;
+            background: #fafafa;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            stroke: white;
+            stroke-width: 3px;
+        }
+
+        .node text {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+            stroke-width: 2px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            padding: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            max-width: 300px;
+            z-index: 1000;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .tooltip-content {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .module-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .module-card {
+            background: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .module-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .module-name {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .module-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .workflow-stage {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .workflow-stage:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .stage-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .stage-classes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .class-tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+
+        .operations-list {
+            margin-top: 10px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: transform 0.2s ease;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .class-detail {
+            background: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .class-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .class-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .class-type-badge {
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge-dataclass {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .badge-enum {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .badge-class {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+
+        .class-section {
+            margin-top: 15px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .attribute-list, .method-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .attribute-tag, .method-tag {
+            background: white;
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            border: 1px solid #e0e0e0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: white;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎬 Multi-Agent 长视频理解系统</h1>
+            <p class="subtitle">项目结构动态可视化 | 实时分析项目架构、类关系和数据流</p>
+        </header>
+
+        <div class="stats-grid" id="stats-grid">
+            <!-- 统计卡片将通过JS动态生成 -->
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="overview">📊 项目概览</button>
+            <button class="tab" data-tab="config">⚙️ 配置系统</button>
+            <button class="tab" data-tab="modules">📦 模块详情</button>
+            <button class="tab" data-tab="classes">🏗️ 类结构</button>
+            <button class="tab" data-tab="graph">🔗 关系图谱</button>
+            <button class="tab" data-tab="workflow">🎬 视频工作流</button>
+            <button class="tab" data-tab="file-tree">📁 文件树</button>
+        </div>
+
+        <div id="overview" class="tab-content active">
+            <h2 style="margin-bottom: 20px;">项目架构概览</h2>
+            <div id="overview-content"></div>
+        </div>
+
+        <div id="config" class="tab-content">
+            <h2 style="margin-bottom: 20px;">配置系统架构</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                展示完整的配置管理系统，从环境变量到全局配置的6层架构。
+            </p>
+            <div id="config-content"></div>
+        </div>
+
+        <div id="modules" class="tab-content">
+            <h2 style="margin-bottom: 20px;">模块详情</h2>
+            <input type="text" class="search-box" id="module-search" placeholder="🔍 搜索模块...">
+            <div class="module-list" id="module-list"></div>
+        </div>
+
+        <div id="classes" class="tab-content">
+            <h2 style="margin-bottom: 20px;">类结构浏览</h2>
+            <input type="text" class="search-box" id="class-search" placeholder="🔍 搜索类...">
+            <div id="class-list"></div>
+        </div>
+
+        <div id="graph" class="tab-content">
+            <h2 style="margin-bottom: 20px;">类关系图谱</h2>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #667eea;"></div>
+                    <span>Dataclass</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f57c00;"></div>
+                    <span>Enum</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #7b1fa2;"></div>
+                    <span>Class</span>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="btn" onclick="resetGraph()">🔄 重置视图</button>
+                <button class="btn" onclick="toggleLabels()">🏷️ 切换标签</button>
+            </div>
+            <div id="graph-container"></div>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+
+        <div id="workflow" class="tab-content">
+            <h2 style="margin-bottom: 20px;">视频理解工作流</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                展示长视频理解的完整处理流程，从视频输入到最终理解结果的生成。
+            </p>
+            <div id="workflow-content"></div>
+        </div>
+
+        <div id="file-tree" class="tab-content">
+            <h2 style="margin-bottom: 20px;">项目文件树</h2>
+            <div id="file-tree-content"></div>
+        </div>
+
+        <footer>
+            <p>🤖 Multi-Agent 长视频理解系统 | 动态可视化工具</p>
+            <p style="margin-top: 10px; opacity: 0.8;">基于 D3.js 实现 | 数据实时生成</p>
+        </footer>
+    </div>
+
+    <script>
+        // 全局变量
+        let projectData = {};
+        let simulation;
+        let showLabels = true;
+
+        // 初始化
+        async function init() {
+            try {
+                await loadData();
+                renderStats();
+                renderOverview();
+                renderConfigSystem();
+                renderModules();
+                renderClasses();
+                renderGraph();
+                renderWorkflow();
+                renderFileTree();
+                setupTabs();
+                setupSearch();
+                console.log('初始化完成');
+            } catch (error) {
+                console.error('初始化失败:', error);
+            }
+        }
+
+        // 加载数据
+        async function loadData() {
+            try {
+                const files = ['stats', 'modules', 'classes', 'data_flow', 'video_workflow', 'config_structure', 'file_tree'];
+                for (const file of files) {
+                    const response = await fetch(`data/${file}.json`);
+                    projectData[file] = await response.json();
+                }
+            } catch (error) {
+                console.error('加载数据失败:', error);
+            }
+        }
+
+        // 渲染统计卡片
+        function renderStats() {
+            const stats = projectData.stats;
+            const statsHtml = `
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total_modules}</div>
+                    <div class="stat-label">模块数量</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total_classes}</div>
+                    <div class="stat-label">类总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total_functions}</div>
+                    <div class="stat-label">函数总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total_lines.toLocaleString()}</div>
+                    <div class="stat-label">代码总行数</div>
+                </div>
+            `;
+            document.getElementById('stats-grid').innerHTML = statsHtml;
+        }
+
+        // 渲染概览
+        function renderOverview() {
+            const stats = projectData.stats;
+            let html = '<div class="module-list">';
+
+            stats.modules.forEach(module => {
+                html += `
+                    <div class="module-card">
+                        <div class="module-name">📦 ${module.name}</div>
+                        <div class="module-stats">
+                            <span>📝 ${module.lines} 行</span>
+                            <span>🏗️ ${module.classes} 类</span>
+                            <span>⚡ ${module.functions} 函数</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            document.getElementById('overview-content').innerHTML = html;
+        }
+
+        // 渲染配置系统
+        function renderConfigSystem() {
+            const config = projectData.config_structure;
+            if (!config || !config.layers || !config.config_classes) {
+                console.error('Config structure data not loaded');
+                document.getElementById('config-content').innerHTML = '<p style="color: red;">配置数据加载失败</p>';
+                return;
+            }
+
+            let html = '<div style="margin-bottom: 30px;">';
+
+            // 渲染配置层级
+            config.layers.forEach((layer, index) => {
+                html += `
+                    <div class="workflow-stage">
+                        <div class="stage-title">
+                            ${index}. ${layer.name}
+                        </div>
+                        <p style="color: #666; margin: 10px 0;">${layer.description}</p>
+                `;
+
+                if (layer.classes) {
+                    html += '<div class="stage-classes">';
+                    layer.classes.forEach(cls => {
+                        html += `<span class="class-tag">${cls}</span>`;
+                    });
+                    html += '</div>';
+                } else if (layer.files) {
+                    html += '<div style="margin-top: 10px; color: #666; font-size: 0.9em;">';
+                    html += '<strong>文件:</strong> ' + layer.files.join(', ');
+                    html += '</div>';
+                }
+
+                html += '</div>';
+
+                if (index < config.layers.length - 1) {
+                    html += '<div style="text-align: center; margin: 10px 0; font-size: 1.5em; color: #667eea;">↓</div>';
+                }
+            });
+
+            html += '</div>';
+
+            // 渲染所有配置类详情
+            html += '<h3 style="margin: 30px 0 20px 0;">配置类详情</h3>';
+            html += '<div class="module-list">';
+
+            config.config_classes.forEach(cls => {
+                html += `
+                    <div class="module-card">
+                        <div class="module-name">
+                            ${cls.is_dataclass ? '📋' : '⚙️'} ${cls.name}
+                        </div>
+                        ${cls.docstring ? `<p style="margin: 10px 0; color: #666; font-size: 0.9em;">${cls.docstring}</p>` : ''}
+                        <div style="margin-top: 10px; color: #999; font-size: 0.85em;">
+                            模块: ${cls.module}
+                        </div>
+                        <div style="margin-top: 8px; color: #667eea; font-size: 0.9em;">
+                            ${cls.attributes.length} 个配置项
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+
+            document.getElementById('config-content').innerHTML = html;
+        }
+
+        // 渲染模块列表
+        function renderModules() {
+            const modules = Object.values(projectData.modules);
+            let html = '';
+
+            modules.forEach(module => {
+                html += `
+                    <div class="module-card" data-module="${module.name}">
+                        <div class="module-name">📦 ${module.name}</div>
+                        <div class="module-stats">
+                            <span>📝 ${module.line_count} 行</span>
+                            <span>🏗️ ${module.classes.length} 类</span>
+                            <span>⚡ ${module.functions.length} 函数</span>
+                            <span>📥 ${module.imports.length} 导入</span>
+                        </div>
+                        ${module.docstring ? `<p style="margin-top: 10px; color: #666; font-size: 0.9em;">${module.docstring.split('\n')[0]}</p>` : ''}
+                    </div>
+                `;
+            });
+
+            document.getElementById('module-list').innerHTML = html;
+        }
+
+        // 渲染类列表
+        function renderClasses() {
+            const classes = Object.values(projectData.classes);
+            let html = '';
+
+            classes.forEach(cls => {
+                const badgeClass = cls.is_dataclass ? 'badge-dataclass' : (cls.is_enum ? 'badge-enum' : 'badge-class');
+                const badgeText = cls.is_dataclass ? 'Dataclass' : (cls.is_enum ? 'Enum' : 'Class');
+
+                html += `
+                    <div class="class-detail" data-class="${cls.name}">
+                        <div class="class-header">
+                            <div class="class-title">${cls.name}</div>
+                            <div class="class-type-badge ${badgeClass}">${badgeText}</div>
+                        </div>
+                        ${cls.docstring ? `<p style="color: #666; margin-bottom: 15px;">${cls.docstring.split('\n')[0]}</p>` : ''}
+
+                        ${cls.attributes.length > 0 ? `
+                            <div class="class-section">
+                                <div class="section-title">📋 属性 (${cls.attributes.length})</div>
+                                <div class="attribute-list">
+                                    ${cls.attributes.map(attr => `<span class="attribute-tag">${attr}</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        ${cls.methods.length > 0 ? `
+                            <div class="class-section">
+                                <div class="section-title">⚡ 方法 (${cls.methods.length})</div>
+                                <div class="method-list">
+                                    ${cls.methods.map(method => `<span class="method-tag">${method}()</span>`).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div style="margin-top: 15px; color: #999; font-size: 0.85em;">
+                            📁 ${cls.file_path.split('/').slice(-2).join('/')}:${cls.line_number}
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('class-list').innerHTML = html;
+        }
+
+        // 渲染关系图
+        function renderGraph() {
+            const container = document.getElementById('graph-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            const svg = d3.select('#graph-container')
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            const g = svg.append('g');
+
+            // 添加缩放功能
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+
+            svg.call(zoom);
+
+            const data = projectData.data_flow;
+
+            // 颜色映射
+            const colorMap = {
+                'dataclass': '#667eea',
+                'enum': '#f57c00',
+                'class': '#7b1fa2'
+            };
+
+            // 创建力导向图
+            simulation = d3.forceSimulation(data.nodes)
+                .force('link', d3.forceLink(data.links).id(d => d.id).distance(100))
+                .force('charge', d3.forceManyBody().strength(-300))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(50));
+
+            // 绘制连线
+            const link = g.append('g')
+                .selectAll('line')
+                .data(data.links)
+                .enter().append('line')
+                .attr('class', 'link');
+
+            // 绘制节点
+            const node = g.append('g')
+                .selectAll('g')
+                .data(data.nodes)
+                .enter().append('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended));
+
+            node.append('circle')
+                .attr('r', d => 10 + (d.attributes_count + d.methods_count) * 0.5)
+                .attr('fill', d => colorMap[d.type] || '#999');
+
+            node.append('text')
+                .attr('dx', 12)
+                .attr('dy', 4)
+                .text(d => d.name)
+                .style('display', showLabels ? 'block' : 'none');
+
+            // 工具提示
+            node.on('mouseover', function(event, d) {
+                const tooltip = document.getElementById('tooltip');
+                tooltip.innerHTML = `
+                    <div class="tooltip-title">${d.name}</div>
+                    <div class="tooltip-content">
+                        <p><strong>类型:</strong> ${d.type}</p>
+                        <p><strong>模块:</strong> ${d.module}</p>
+                        <p><strong>属性:</strong> ${d.attributes_count}</p>
+                        <p><strong>方法:</strong> ${d.methods_count}</p>
+                    </div>
+                `;
+                tooltip.style.left = event.pageX + 10 + 'px';
+                tooltip.style.top = event.pageY + 10 + 'px';
+                tooltip.classList.add('visible');
+            })
+            .on('mouseout', function() {
+                document.getElementById('tooltip').classList.remove('visible');
+            });
+
+            // 更新位置
+            simulation.on('tick', () => {
+                link
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+
+            // 拖拽函数
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            }
+        }
+
+        // 渲染工作流
+        function renderWorkflow() {
+            const workflow = projectData.video_workflow;
+            let html = '';
+
+            workflow.stages.forEach((stage, index) => {
+                html += `
+                    <div class="workflow-stage">
+                        <div class="stage-title">
+                            ${index + 1}. ${stage.name}
+                        </div>
+                        <div class="stage-classes">
+                            ${stage.classes.map(cls => `<span class="class-tag">${cls}</span>`).join('')}
+                        </div>
+                        <div class="operations-list">
+                            <strong>操作:</strong> ${stage.operations.join(', ')}
+                        </div>
+                    </div>
+                `;
+
+                if (index < workflow.stages.length - 1) {
+                    html += '<div style="text-align: center; margin: 10px 0; font-size: 1.5em; color: #667eea;">↓</div>';
+                }
+            });
+
+            document.getElementById('workflow-content').innerHTML = html;
+        }
+
+        // 渲染文件树
+        function renderFileTree() {
+            const tree = projectData.file_tree;
+            const html = renderTreeNode(tree, 0);
+            document.getElementById('file-tree-content').innerHTML = html;
+        }
+
+        function renderTreeNode(node, level) {
+            let html = '';
+            const indent = '  '.repeat(level);
+
+            for (const [key, value] of Object.entries(node)) {
+                if (key.startsWith('_')) continue;
+
+                const isFile = value._type === 'file';
+                const icon = isFile ? '📄' : '📁';
+                const className = isFile ? 'tree-file' : 'tree-directory';
+                const lines = value._lines ? ` (${value._lines} lines)` : '';
+
+                html += `<div class="tree-item ${className}" style="padding-left: ${level * 20}px;">
+                    <span class="tree-icon">${icon}</span>${key}${lines}
+                </div>`;
+
+                if (!isFile) {
+                    html += renderTreeNode(value, level + 1);
+                }
+            }
+
+            return html;
+        }
+
+        // 标签页切换
+        function setupTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.tab).classList.add('active');
+                });
+            });
+        }
+
+        // 搜索功能
+        function setupSearch() {
+            document.getElementById('module-search').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                document.querySelectorAll('.module-card').forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    card.style.display = text.includes(query) ? 'block' : 'none';
+                });
+            });
+
+            document.getElementById('class-search').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                document.querySelectorAll('.class-detail').forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    card.style.display = text.includes(query) ? 'block' : 'none';
+                });
+            });
+        }
+
+        // 重置图谱
+        function resetGraph() {
+            simulation.alpha(1).restart();
+        }
+
+        // 切换标签
+        function toggleLabels() {
+            showLabels = !showLabels;
+            d3.selectAll('.node text').style('display', showLabels ? 'block' : 'none');
+        }
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>

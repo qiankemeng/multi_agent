@@ -43,7 +43,7 @@ def example_1_mllm_client():
     # 创建客户端
     client = MLLMClient(MLLMClientConfig(
         api_key=os.getenv("OPENAI_API_KEY"),
-        default_model="gpt-4-turbo-preview"
+        default_model=os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4-turbo-preview")
     ))
 
     # 创建一个简单的请求
@@ -51,7 +51,7 @@ def example_1_mllm_client():
 
     request = MLLMRequest(
         request_id="req_001",
-        model_name="gpt-4-turbo-preview",
+        model_name=os.getenv("OPENAI_DEFAULT_MODEL", "gpt-4-turbo-preview"),
         api_endpoint="https://api.openai.com/v1",
         prompt="请用一句话解释什么是多智能体系统？",
         temperature=0.7,
@@ -140,16 +140,14 @@ def example_3_tool_user_agent():
                 video_id="vid_001",
                 frame_index=0,
                 timestamp_sec=0.0,
-                image_path="https://example.com/frame1.jpg",  # 示例URL
-                image_base64=None
+                image_path="https://example.com/frame1.jpg"  # 示例URL
             ),
             Frame(
                 frame_id="frame_002",
                 video_id="vid_001",
                 frame_index=30,
                 timestamp_sec=1.0,
-                image_path="https://example.com/frame2.jpg",
-                image_base64=None
+                image_path="https://example.com/frame2.jpg"
             )
         ]
 
@@ -215,8 +213,7 @@ def example_4_tool_user_agent_segment():
                 video_id="vid_001",
                 frame_index=i * 100,
                 timestamp_sec=i * 3.33,
-                image_path=f"https://example.com/frame{i}.jpg",
-                image_base64=None
+                image_path=f"https://example.com/frame{i}.jpg"
             )
             for i in range(3)  # 3个关键帧
         ]

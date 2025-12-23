@@ -1,0 +1,294 @@
+{
+  "project_info": {
+    "name": "Multi-Agent Long Video Understanding System",
+    "description": "长视频理解的多代理系统，专注于视频问答任务",
+    "version": "MVP",
+    "key_tech": [
+      "Multi-Agent",
+      "MLLM API",
+      "Video Processing",
+      "Q&A"
+    ]
+  },
+  "agents": [
+    {
+      "name": "Tool Creator Agent",
+      "role": "tool_creator",
+      "description": "通过MLLM API动态创建视频处理工具，组合原子操作生成可执行的Python函数",
+      "capabilities": [
+        "理解用户需求",
+        "组合原子操作",
+        "生成Python代码",
+        "创建工具函数"
+      ],
+      "mllm_model": "gpt-4o (配置可调)",
+      "color": "#4A90E2"
+    },
+    {
+      "name": "Tool User Agent",
+      "role": "tool_user",
+      "description": "使用MLLM API分析视频内容，理解视频帧并回答用户问题",
+      "capabilities": [
+        "视频帧分析",
+        "片段理解",
+        "问题回答",
+        "内容摘要生成"
+      ],
+      "mllm_model": "gpt-4o (Vision支持)",
+      "color": "#50C878"
+    }
+  ],
+  "atomic_operations": [
+    {
+      "name": "SAMPLE",
+      "description": "从视频或片段中提取帧图像",
+      "input_type": "VideoMeta | Segment",
+      "output_type": "List[Frame]",
+      "methods": [
+        {
+          "name": "uniform",
+          "desc": "均匀采样N帧"
+        },
+        {
+          "name": "keyframe",
+          "desc": "基于内容变化检测关键帧"
+        },
+        {
+          "name": "timestamps",
+          "desc": "按指定时间点采样"
+        }
+      ],
+      "examples": [
+        "uniform: 从30秒视频中均匀提取10帧",
+        "keyframe: 检测场景变化提取关键帧",
+        "timestamps: 在第0、10、20秒提取帧"
+      ]
+    },
+    {
+      "name": "SEGMENT",
+      "description": "将视频按策略分割成多个片段",
+      "input_type": "VideoMeta",
+      "output_type": "List[Segment]",
+      "methods": [
+        {
+          "name": "fixed_duration",
+          "desc": "按固定时长分割"
+        },
+        {
+          "name": "scene_change",
+          "desc": "基于场景变化分割"
+        },
+        {
+          "name": "custom",
+          "desc": "按自定义时间点分割"
+        }
+      ],
+      "examples": [
+        "fixed_duration: 每30秒一个片段",
+        "scene_change: 自动检测场景切换",
+        "custom: 在指定时间点[0, 45, 120, 300]分割"
+      ]
+    },
+    {
+      "name": "CALL_MODEL",
+      "description": "统一的模型调用接口（MLLM视觉理解 / ASR语音识别）",
+      "input_type": "prompt + frames/audio",
+      "output_type": "ModelResponse",
+      "methods": [
+        {
+          "name": "mllm",
+          "desc": "多模态大语言模型 (GPT-4o, Claude, Gemini)"
+        },
+        {
+          "name": "asr",
+          "desc": "语音识别 (Whisper)"
+        }
+      ],
+      "examples": [
+        "mllm: 描述视频帧中的内容",
+        "mllm: 回答关于视频的问题",
+        "asr: 转写视频中的语音"
+      ]
+    },
+    {
+      "name": "BBOX",
+      "description": "在帧图像上绘制边界框和标注",
+      "input_type": "Frame + boxes",
+      "output_type": "Frame",
+      "methods": [],
+      "examples": [
+        "在检测到的人脸位置画框",
+        "标注视频中的重要对象",
+        "可视化分析结果"
+      ]
+    }
+  ],
+  "workflow": [
+    {
+      "step_num": 1,
+      "name": "视频输入",
+      "description": "用户提供视频文件和问题",
+      "operation": "VideoMeta提取",
+      "input_data": "video_file + user_question",
+      "output_data": "VideoMeta (duration, fps, resolution)",
+      "agent": "system"
+    },
+    {
+      "step_num": 2,
+      "name": "视频分段",
+      "description": "将长视频分割成多个可处理的片段",
+      "operation": "SEGMENT",
+      "input_data": "VideoMeta",
+      "output_data": "List[Segment] (N个片段)",
+      "agent": "system"
+    },
+    {
+      "step_num": 3,
+      "name": "关键帧采样",
+      "description": "从每个片段中提取关键帧",
+      "operation": "SAMPLE",
+      "input_data": "Segment",
+      "output_data": "List[Frame] (每段3-10帧)",
+      "agent": "system"
+    },
+    {
+      "step_num": 4,
+      "name": "片段视觉理解",
+      "description": "Tool User Agent使用MLLM分析每个片段的视觉内容",
+      "operation": "CALL_MODEL (mllm)",
+      "input_data": "List[Frame] + prompt",
+      "output_data": "SegmentCaption (片段描述)",
+      "agent": "tool_user"
+    },
+    {
+      "step_num": 5,
+      "name": "整合片段理解",
+      "description": "收集所有片段的描述，构建完整视频理解",
+      "operation": "Aggregation",
+      "input_data": "List[SegmentCaption]",
+      "output_data": "VideoUnderstanding (完整理解)",
+      "agent": "system"
+    },
+    {
+      "step_num": 6,
+      "name": "问题回答",
+      "description": "Tool User Agent基于完整视频理解回答用户问题",
+      "operation": "CALL_MODEL (mllm)",
+      "input_data": "VideoUnderstanding + user_question",
+      "output_data": "Answer (答案)",
+      "agent": "tool_user"
+    }
+  ],
+  "example_scenario": {
+    "title": "新闻视频问答示例",
+    "video": {
+      "title": "10分钟新闻节目",
+      "duration": "10:00",
+      "segments": 20,
+      "question": "这个新闻节目主要报道了哪些话题？"
+    },
+    "processing_steps": [
+      {
+        "step": "1. 分段 (SEGMENT)",
+        "action": "将10分钟视频分成20个30秒片段",
+        "result": "20个Segment对象"
+      },
+      {
+        "step": "2. 采样 (SAMPLE)",
+        "action": "从每个片段提取3个关键帧",
+        "result": "60个Frame对象"
+      },
+      {
+        "step": "3. 理解片段 (CALL_MODEL)",
+        "action": "对每组3帧调用GPT-4o生成描述",
+        "result": "20个片段描述"
+      },
+      {
+        "step": "4. 回答问题 (CALL_MODEL)",
+        "action": "基于20个片段描述回答用户问题",
+        "result": "该节目报道了：科技新品发布、体育赛事结果、天气预报"
+      }
+    ],
+    "metrics": {
+      "total_api_calls": 21,
+      "total_frames_analyzed": 60,
+      "estimated_tokens": "~15000 tokens",
+      "estimated_cost": "~$0.50 USD",
+      "processing_time": "~45 seconds"
+    }
+  },
+  "system_architecture": {
+    "layers": [
+      {
+        "name": "User Interface Layer",
+        "components": [
+          "Video Input",
+          "Question Input",
+          "Answer Display"
+        ],
+        "description": "用户交互层"
+      },
+      {
+        "name": "Agent Layer",
+        "components": [
+          "Tool Creator Agent",
+          "Tool User Agent"
+        ],
+        "description": "智能代理层 - 核心业务逻辑"
+      },
+      {
+        "name": "Atomic Operations Layer",
+        "components": [
+          "SAMPLE",
+          "SEGMENT",
+          "CALL_MODEL",
+          "BBOX"
+        ],
+        "description": "原子操作层 - 基础视频处理单元"
+      },
+      {
+        "name": "MLLM API Layer",
+        "components": [
+          "GPT-4o",
+          "Claude-3.5",
+          "Gemini-1.5",
+          "Whisper"
+        ],
+        "description": "模型API层 - 提供AI能力"
+      },
+      {
+        "name": "Data Layer",
+        "components": [
+          "VideoMeta",
+          "Segment",
+          "Frame",
+          "ModelResponse"
+        ],
+        "description": "数据层 - 标准化数据结构"
+      }
+    ],
+    "data_flow": [
+      "Video → VideoMeta → Segment → Frame → MLLM → Understanding → Answer"
+    ],
+    "key_features": [
+      "模块化设计：4个原子操作可灵活组合",
+      "统一接口：ModelResponse支持多种模型",
+      "成本可控：通过调整采样策略控制API调用",
+      "可扩展性：易于添加新的原子操作和模型"
+    ]
+  },
+  "statistics": {
+    "total_agents": 2,
+    "total_atomic_ops": 4,
+    "workflow_steps": 6,
+    "supported_models": [
+      "GPT-4o",
+      "GPT-4o-mini",
+      "Claude-3.5-Sonnet",
+      "Claude-3-Haiku",
+      "Gemini-1.5-Pro",
+      "Gemini-1.5-Flash",
+      "Whisper-large-v3"
+    ]
+  }
+}

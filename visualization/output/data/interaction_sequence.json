@@ -1,0 +1,86 @@
+[
+  {
+    "seq": 1,
+    "from": "User",
+    "to": "System",
+    "message": "提交视频 + 问题",
+    "type": "input"
+  },
+  {
+    "seq": 2,
+    "from": "System",
+    "to": "System",
+    "message": "提取VideoMeta, 执行SEGMENT + SAMPLE",
+    "type": "processing"
+  },
+  {
+    "seq": 3,
+    "from": "System",
+    "to": "Tool User Agent",
+    "message": "请求分析片段1的视觉内容",
+    "type": "request"
+  },
+  {
+    "seq": 4,
+    "from": "Tool User Agent",
+    "to": "MLLM API",
+    "message": "CALL_MODEL: prompt + frames",
+    "type": "api_call"
+  },
+  {
+    "seq": 5,
+    "from": "MLLM API",
+    "to": "Tool User Agent",
+    "message": "返回片段描述",
+    "type": "response"
+  },
+  {
+    "seq": 6,
+    "from": "Tool User Agent",
+    "to": "System",
+    "message": "片段1理解完成",
+    "type": "result"
+  },
+  {
+    "seq": 7,
+    "from": "System",
+    "to": "System",
+    "message": "重复步骤3-6处理所有片段...",
+    "type": "loop"
+  },
+  {
+    "seq": 8,
+    "from": "System",
+    "to": "Tool User Agent",
+    "message": "请求基于完整理解回答问题",
+    "type": "request"
+  },
+  {
+    "seq": 9,
+    "from": "Tool User Agent",
+    "to": "MLLM API",
+    "message": "CALL_MODEL: question + video_understanding",
+    "type": "api_call"
+  },
+  {
+    "seq": 10,
+    "from": "MLLM API",
+    "to": "Tool User Agent",
+    "message": "返回答案",
+    "type": "response"
+  },
+  {
+    "seq": 11,
+    "from": "Tool User Agent",
+    "to": "System",
+    "message": "问答完成",
+    "type": "result"
+  },
+  {
+    "seq": 12,
+    "from": "System",
+    "to": "User",
+    "message": "返回最终答案",
+    "type": "output"
+  }
+]

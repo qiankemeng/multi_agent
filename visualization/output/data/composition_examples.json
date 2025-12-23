@@ -1,0 +1,48 @@
+[
+  {
+    "name": "快速单帧分析",
+    "description": "分析视频特定时间点的内容",
+    "composition": [
+      "SAMPLE(timestamps)",
+      "CALL_MODEL(mllm)"
+    ],
+    "use_case": "检查视频第30秒发生了什么",
+    "code_sketch": "frames = SAMPLE(video, method='timestamps', params={'timestamps': [30]})\nresult = CALL_MODEL('mllm', 'gpt-4o', inputs={'prompt': 'Describe', 'frames': frames})"
+  },
+  {
+    "name": "完整视频理解",
+    "description": "理解整个长视频的内容",
+    "composition": [
+      "SEGMENT(fixed_duration)",
+      "SAMPLE(uniform)",
+      "CALL_MODEL(mllm)",
+      "Aggregate"
+    ],
+    "use_case": "生成10分钟视频的完整摘要",
+    "code_sketch": "segments = SEGMENT(video, strategy='fixed_duration', params={'duration_sec': 30})\nfor seg in segments:\n    frames = SAMPLE(seg, method='uniform', params={'num_frames': 3})\n    caption = CALL_MODEL(...)\nagg_result = aggregate(all_captions)"
+  },
+  {
+    "name": "多模态理解（视觉+语音）",
+    "description": "同时分析视频的视觉和音频内容",
+    "composition": [
+      "SEGMENT",
+      "SAMPLE",
+      "CALL_MODEL(mllm)",
+      "CALL_MODEL(asr)",
+      "Fusion"
+    ],
+    "use_case": "理解新闻节目的画面和解说",
+    "code_sketch": "visual = CALL_MODEL('mllm', ...)\naudio = CALL_MODEL('asr', 'whisper-large-v3', ...)\nfusion_result = combine(visual, audio)"
+  },
+  {
+    "name": "关键帧提取与标注",
+    "description": "提取关键帧并标注重要区域",
+    "composition": [
+      "SAMPLE(keyframe)",
+      "CALL_MODEL(detection)",
+      "BBOX"
+    ],
+    "use_case": "提取并标注视频中的关键对象",
+    "code_sketch": "keyframes = SAMPLE(video, method='keyframe', params={'threshold': 0.3})\ndetections = CALL_MODEL('detection', ...)\nannotated = BBOX(frame, boxes=detections)"
+  }
+]
